@@ -12,18 +12,19 @@
         #menuOverlay {
             position: fixed; inset: 0; background: rgba(13, 15, 18, 0.88);
             display: flex; align-items: center; justify-content: center; z-index: 20; padding: 16px;
+            touch-action: manipulation;
         }
         .menu-card {
             background: #1e2229; border: 4px solid #0d0f12; border-radius: 18px;
-            padding: 24px 28px; width: 100%; max-width: 400px; text-align: center;
-            color: #fff; box-shadow: 0 12px 32px rgba(0,0,0,0.55);
+            padding: 24px 26px; width: 100%; max-width: 400px; text-align: center;
+            color: #fff; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
         }
         .menu-card h1 { margin: 0 0 6px; font-size: 26px; color: #facc15; letter-spacing: 0.5px; }
         .menu-card p.sub { margin: 0 0 20px; font-size: 14px; color: #cbd5e1; }
         .m-btn {
             display: block; width: 100%; padding: 14px 16px; margin: 10px 0;
             border: 3px solid #0d0f12; border-radius: 12px; font-size: 17px; font-weight: 800;
-            color: #fff; cursor: pointer; text-align: center;
+            color: #fff; cursor: pointer; text-align: center; touch-action: manipulation;
         }
         .m-btn:active { transform: translateY(2px); }
         .m-local { background: #374151; }
@@ -32,7 +33,7 @@
         .m-back { background: #4b5563; font-size: 14px; padding: 10px; margin-top: 14px; }
         .code-box {
             background: #0d0f12; border: 3px solid #e5534b; border-radius: 12px;
-            padding: 14px; margin: 14px 0; font-size: 42px; font-weight: 900;
+            padding: 14px; margin: 14px 0; font-size: 44px; font-weight: 900;
             letter-spacing: 8px; color: #facc15;
         }
         .code-input {
@@ -40,6 +41,7 @@
             text-align: center; letter-spacing: 8px; border-radius: 12px;
             border: 3px solid #20b8f9; background: #0d0f12; color: #fff;
             margin: 12px 0; user-select: text; -webkit-user-select: text;
+            touch-action: manipulation;
         }
         .status-txt { font-size: 14px; color: #94a3b8; min-height: 20px; margin-top: 8px; }
         .hidden { display: none !important; }
@@ -49,24 +51,24 @@
 <div id="menuOverlay">
     <div class="menu-card">
         <h1>IGEL CO-OP</h1>
-        <p class="sub">Taktik & Rätsel für 2 Spieler</p>
+        <p class="sub">Taktik &amp; Rätsel für 2 Spieler</p>
         <div id="mainMenu">
-            <button class="m-btn m-local" id="btnLocal">Lokal (1 Gerät)</button>
-            <button class="m-btn m-red" id="btnHost">Raum erstellen (Rot)</button>
-            <button class="m-btn m-blue" id="btnJoinView">Beitreten (Blau)</button>
+            <button type="button" class="m-btn m-local" id="btnLocal">Lokal (1 Gerät)</button>
+            <button type="button" class="m-btn m-red" id="btnHost">Raum erstellen (Rot)</button>
+            <button type="button" class="m-btn m-blue" id="btnJoinView">Beitreten (Blau)</button>
         </div>
         <div id="hostPanel" class="hidden">
             <div>Dein Raum-Code:</div>
             <div class="code-box" id="roomCodeDisplay">----</div>
             <div class="status-txt" id="hostStatus">Erstelle Raum...</div>
-            <button class="m-btn m-back" id="btnCancelHost">Zurück</button>
+            <button type="button" class="m-btn m-back" id="btnCancelHost">Zurück</button>
         </div>
         <div id="joinPanel" class="hidden">
             <div>4-stelligen Code eingeben:</div>
             <input class="code-input" id="codeInput" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="0000" autocomplete="off">
-            <button class="m-btn m-blue" id="btnConnect">Verbinden</button>
+            <button type="button" class="m-btn m-blue" id="btnConnect">Verbinden</button>
             <div class="status-txt" id="joinStatus"></div>
-            <button class="m-btn m-back" id="btnCancelJoin">Zurück</button>
+            <button type="button" class="m-btn m-back" id="btnCancelJoin">Zurück</button>
         </div>
     </div>
 </div>
@@ -80,12 +82,29 @@ let view = { scale: 1, offsetX: 0, offsetY: 0, rotation: 0 };
 const inputs = { redRight: false, redCurl: false, blueJump: false, blueLeft: false };
 const keys = { redRight: false, redCurl: false, blueJump: false, blueLeft: false };
 const remoteInputs = { blueJump: false, blueLeft: false };
+let remoteJumpPulse = false;
 const activePointers = new Map();
 
+// Netzwerk-Status & PeerJS-Konfiguration
 let netMode = 'local'; // 'local' | 'host' | 'client'
-let peer = null, conn = null, hostSendTimer = null, roomCode = '';
+let peer = null, conn = null;
+let hostSendTimer = null, clientInputTimer = null, connectTimeout = null;
+let roomCode = '';
 let netTarget = null;
+let hasReceivedInitialState = false;
+let stateSeq = 0, lastStateSeq = -1;
+let inputSeq = 0, lastInputSeq = -1;
 let lastSentBlue = { blueJump: false, blueLeft: false };
+
+const PEER_CONFIG = {
+    config: {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
+        ]
+    }
+};
 
 const controlButtons = [
     { id: 'redRight', x: 155, y: 615, r: 54, hitR: 70, color: '#e5534b', label: 'RECHTS', sub: 'Laufen' },
@@ -317,6 +336,7 @@ function launchCatapult() {
 function update(dt) {
     if (netMode === 'client') {
         const f = Math.min(1, 20 * dt);
+        if (player.invuln > 0) player.invuln = Math.max(0, player.invuln - dt);
         if (netTarget) {
             player.x += (netTarget.px - player.x) * f;
             player.y += (netTarget.py - player.y) * f;
@@ -337,10 +357,11 @@ function update(dt) {
     const left = netMode === 'host' ? remoteInputs.blueLeft : (inputs.blueLeft || keys.blueLeft);
     const right = inputs.redRight || keys.redRight;
     const curl = inputs.redCurl || keys.redCurl;
-    const jump = netMode === 'host' ? remoteInputs.blueJump : (inputs.blueJump || keys.blueJump);
+    const jump = netMode === 'host' ? (remoteInputs.blueJump || remoteJumpPulse) : (inputs.blueJump || keys.blueJump);
 
     const jumpJustPressed = jump && !player.wasJumpPressed;
     player.wasJumpPressed = jump;
+    remoteJumpPulse = false;
     player.curled = curl;
     if (left && !right) player.facing = -1;
     if (right && !left) player.facing = 1;
@@ -719,10 +740,10 @@ function render() {
 
     if (netMode !== 'local') {
         ctx.fillStyle = netMode === 'host' ? '#e5534b' : '#20b8f9';
-        ctx.fillRect(415, 14, 210, 40); ctx.strokeRect(415, 14, 210, 40);
+        ctx.fillRect(415, 14, 215, 40); ctx.strokeRect(415, 14, 215, 40);
         ctx.fillStyle = netMode === 'host' ? '#fff' : '#0d0f12';
         ctx.font = 'bold 16px system-ui';
-        ctx.fillText((netMode === 'host' ? 'ROT (HOST) • ' : 'BLAU (CLIENT) • ') + roomCode, 520, 40);
+        ctx.fillText((netMode === 'host' ? 'ROT (HOST) • ' : 'BLAU (CLIENT) • ') + roomCode, 522, 40);
     }
 
     const drawBtn = (b, txt) => {
@@ -761,61 +782,87 @@ function sendBlueInputs(force = false) {
     if (netMode !== 'client' || !conn || !conn.open) return;
     const blueJump = !!(inputs.blueJump || keys.blueJump);
     const blueLeft = !!(inputs.blueLeft || keys.blueLeft);
+    const justPressedJump = blueJump && !lastSentBlue.blueJump;
     if (force || blueJump !== lastSentBlue.blueJump || blueLeft !== lastSentBlue.blueLeft) {
         lastSentBlue.blueJump = blueJump;
         lastSentBlue.blueLeft = blueLeft;
-        conn.send({ type: 'input', blueJump, blueLeft });
+        inputSeq++;
+        try {
+            conn.send({ type: 'input', seq: inputSeq, blueJump, blueLeft, jumpPulse: justPressedJump });
+        } catch (e) {}
     }
 }
 
 function sendGameState() {
     if (netMode !== 'host' || !conn || !conn.open) return;
-    conn.send({
-        type: 'state',
-        levelIndex: state.levelIndex,
-        levelSeed: state.levelSeed,
-        hearts: state.hearts,
-        won: state.won,
-        camX: state.camX,
-        p: {
-            x: player.x, y: player.y, vx: player.vx, vy: player.vy,
-            grounded: player.grounded, curled: player.curled, rot: player.rot,
-            facing: player.facing, aimState: player.aimState, aimAngle: player.aimAngle,
-            slingshotCharge: player.slingshotCharge, invuln: player.invuln
-        },
-        boxes: boxes.map(b => ({ x: b.x, y: b.y })),
-        gates: gates.map(g => g.openH),
-        zombies: zombies.map(z => ({ x: z.x, y: z.y, dir: z.dir, dead: z.dead })),
-        buttons: buttons.map(b => b.pressed),
-        winds: winds.map(w => w.active),
-        breakables,
-        seesaws: seesaws.map(s => s.angle),
-        mushrooms: mushrooms.map(m => m.bounce)
-    });
+    stateSeq++;
+    try {
+        conn.send({
+            type: 'state',
+            seq: stateSeq,
+            levelIndex: state.levelIndex,
+            levelSeed: state.levelSeed,
+            hearts: state.hearts,
+            won: state.won,
+            camX: state.camX,
+            p: {
+                x: player.x, y: player.y, vx: player.vx, vy: player.vy,
+                grounded: player.grounded, curled: player.curled, rot: player.rot,
+                facing: player.facing, aimState: player.aimState, aimAngle: player.aimAngle,
+                slingshotCharge: player.slingshotCharge, invuln: player.invuln
+            },
+            boxes: boxes.map(b => ({ x: b.x, y: b.y })),
+            gates: gates.map(g => g.openH),
+            zombies: zombies.map(z => ({ x: z.x, y: z.y, dir: z.dir, dead: z.dead })),
+            buttons: buttons.map(b => b.pressed),
+            winds: winds.map(w => w.active),
+            breakables,
+            seesaws: seesaws.map(s => s.angle),
+            mushrooms: mushrooms.map(m => m.bounce)
+        });
+    } catch (e) {}
 }
 
 function applyClientState(d) {
-    const levelChanged = (d.levelIndex !== state.levelIndex || d.levelSeed !== state.levelSeed);
+    if (d.seq !== undefined) {
+        if (d.seq <= lastStateSeq) return;
+        lastStateSeq = d.seq;
+    }
+
+    const levelChanged = !hasReceivedInitialState || d.levelIndex !== state.levelIndex || d.levelSeed !== state.levelSeed;
+    if (hasReceivedInitialState && !levelChanged) {
+        if (d.hearts < state.hearts) playTone(160, 'sawtooth', 0.3, 0.16, 70);
+    } else if (hasReceivedInitialState && d.levelIndex > state.levelIndex) {
+        playTone(440, 'triangle', 0.35, 0.18, 880);
+    }
+
     state.levelIndex = d.levelIndex;
     state.levelSeed = d.levelSeed;
     state.hearts = d.hearts;
     state.won = d.won;
+
     if (levelChanged) {
         loadLevel(state.levelIndex, false);
         netTarget = null;
     }
 
     const px = d.p.x, py = d.p.y, prot = d.p.rot;
-    if (!netTarget || Math.hypot(px - player.x, py - player.y) > 250) {
-        player.x = px; player.y = py; player.rot = prot;
+    if (!hasReceivedInitialState || levelChanged || !netTarget || Math.hypot(px - player.x, py - player.y) > 250) {
+        player.x = px;
+        player.y = py;
+        player.rot = prot;
     }
-    player.vx = d.p.vx; player.vy = d.p.vy;
-    player.grounded = d.p.grounded; player.curled = d.p.curled;
-    player.facing = d.p.facing; player.aimState = d.p.aimState;
-    player.aimAngle = d.p.aimAngle; player.slingshotCharge = d.p.slingshotCharge;
+    player.vx = d.p.vx;
+    player.vy = d.p.vy;
+    player.grounded = d.p.grounded;
+    player.curled = d.p.curled;
+    player.facing = d.p.facing;
+    player.aimState = d.p.aimState;
+    player.aimAngle = d.p.aimAngle;
+    player.slingshotCharge = d.p.slingshotCharge;
     player.invuln = d.p.invuln;
 
-    if (!netTarget || Math.abs(d.camX - state.camX) > 250) {
+    if (!hasReceivedInitialState || levelChanged || !netTarget || Math.abs(d.camX - state.camX) > 250) {
         state.camX = d.camX;
     }
     netTarget = { px, py, prot, camX: d.camX };
@@ -823,16 +870,18 @@ function applyClientState(d) {
     if (d.boxes && d.boxes.length === boxes.length) {
         for (let i = 0; i < boxes.length; i++) {
             const bx = d.boxes[i];
-            if (boxes[i].tx === undefined || Math.hypot(bx.x - boxes[i].x, bx.y - boxes[i].y) > 250) {
-                boxes[i].x = bx.x; boxes[i].y = bx.y;
+            if (levelChanged || boxes[i].tx === undefined || Math.hypot(bx.x - boxes[i].x, bx.y - boxes[i].y) > 250) {
+                boxes[i].x = bx.x;
+                boxes[i].y = bx.y;
             }
-            boxes[i].tx = bx.x; boxes[i].ty = bx.y;
+            boxes[i].tx = bx.x;
+            boxes[i].ty = bx.y;
         }
     }
     if (d.gates && d.gates.length === gates.length) {
         for (let i = 0; i < gates.length; i++) {
             const go = d.gates[i];
-            if (gates[i].tOpenH === undefined || Math.abs(go - gates[i].openH) > 250) {
+            if (levelChanged || gates[i].tOpenH === undefined || Math.abs(go - gates[i].openH) > 250) {
                 gates[i].openH = go;
             }
             gates[i].tOpenH = go;
@@ -841,11 +890,14 @@ function applyClientState(d) {
     if (d.zombies && d.zombies.length === zombies.length) {
         for (let i = 0; i < zombies.length; i++) {
             const zx = d.zombies[i];
-            if (zombies[i].tx === undefined || Math.hypot(zx.x - zombies[i].x, zx.y - zombies[i].y) > 250) {
-                zombies[i].x = zx.x; zombies[i].y = zx.y;
+            if (levelChanged || zombies[i].tx === undefined || Math.hypot(zx.x - zombies[i].x, zx.y - zombies[i].y) > 250) {
+                zombies[i].x = zx.x;
+                zombies[i].y = zx.y;
             }
-            zombies[i].tx = zx.x; zombies[i].ty = zx.y;
-            zombies[i].dir = zx.dir; zombies[i].dead = zx.dead;
+            zombies[i].tx = zx.x;
+            zombies[i].ty = zx.y;
+            zombies[i].dir = zx.dir;
+            zombies[i].dead = zx.dead;
         }
     }
     if (d.buttons && d.buttons.length === buttons.length) {
@@ -856,13 +908,18 @@ function applyClientState(d) {
     }
     if (d.breakables) breakables = d.breakables;
     if (d.seesaws && d.seesaws.length === seesaws.length) {
-        for (let i = 0; i < seesaws.length; i++) seesaws[i].tAngle = d.seesaws[i];
+        for (let i = 0; i < seesaws.length; i++) {
+            if (levelChanged || seesaws[i].tAngle === undefined) seesaws[i].angle = d.seesaws[i];
+            seesaws[i].tAngle = d.seesaws[i];
+        }
     }
     if (d.mushrooms && d.mushrooms.length === mushrooms.length) {
         for (let i = 0; i < mushrooms.length; i++) {
             if (d.mushrooms[i] > mushrooms[i].bounce) mushrooms[i].bounce = d.mushrooms[i];
         }
     }
+
+    hasReceivedInitialState = true;
 }
 
 function toGameCoords(clientX, clientY) {
@@ -883,7 +940,9 @@ canvas.addEventListener('pointerdown', e => {
     if (hitRect(pt, uiButtons.sound)) { soundOn = !soundOn; return; }
     if (state.won || hitRect(pt, uiButtons.resetRoom)) {
         if (netMode === 'client') {
-            if (conn && conn.open) conn.send({ type: 'reset' });
+            if (conn && conn.open) {
+                try { conn.send({ type: 'reset' }); } catch (err) {}
+            }
         } else {
             if (state.won) { state.won = false; state.levelIndex = 0; state.hearts = 5; loadLevel(0, true); }
             else loadLevel(state.levelIndex, false);
@@ -931,8 +990,12 @@ const codeInput = document.getElementById('codeInput');
 
 function cleanupPeer() {
     if (hostSendTimer) { clearInterval(hostSendTimer); hostSendTimer = null; }
+    if (clientInputTimer) { clearInterval(clientInputTimer); clientInputTimer = null; }
+    if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
     if (conn) { try { conn.close(); } catch (e) {} conn = null; }
     if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
+    activePointers.clear();
+    syncPointers();
 }
 
 document.getElementById('btnLocal').addEventListener('click', () => {
@@ -951,32 +1014,51 @@ function startHostSession() {
     roomCode = String(Math.floor(1000 + Math.random() * 9000));
     roomCodeDisplay.textContent = roomCode;
     hostStatus.textContent = 'Verbinde mit Server...';
-    peer = new Peer('igel-' + roomCode);
+    peer = new Peer('igel-' + roomCode, PEER_CONFIG);
 
     peer.on('open', () => {
         hostStatus.textContent = 'Warte auf Spieler 2 (Blau)...';
     });
     peer.on('error', err => {
         if (err && err.type === 'unavailable-id') startHostSession();
-        else hostStatus.textContent = 'Fehler: ' + (err.type || err.message);
+        else hostStatus.textContent = 'Fehler: ' + (err.type || err.message || 'Unbekannt');
     });
     peer.on('connection', c => {
         conn = c;
-        c.on('open', () => {
+        let hostStarted = false;
+
+        const activateHost = () => {
+            if (hostStarted) return;
+            hostStarted = true;
             netMode = 'host';
+            stateSeq = 0;
+            lastInputSeq = -1;
             remoteInputs.blueJump = false;
             remoteInputs.blueLeft = false;
+            remoteJumpPulse = false;
             menuOverlay.classList.add('hidden');
-            state.levelIndex = 0; state.hearts = 5; state.won = false;
+            state.levelIndex = 0;
+            state.hearts = 5;
+            state.won = false;
             loadLevel(0, true);
             sendGameState();
             if (hostSendTimer) clearInterval(hostSendTimer);
             hostSendTimer = setInterval(sendGameState, 28);
-        });
+        };
+
         c.on('data', d => {
             if (!d) return;
+            if (!hostStarted) activateHost();
             if (d.type === 'input') {
-                remoteInputs.blueJump = !!d.blueJump;
+                if (d.seq !== undefined) {
+                    if (d.seq <= lastInputSeq) return;
+                    lastInputSeq = d.seq;
+                }
+                const nextJump = !!d.blueJump;
+                if ((nextJump && !remoteInputs.blueJump) || d.jumpPulse) {
+                    remoteJumpPulse = true;
+                }
+                remoteInputs.blueJump = nextJump;
                 remoteInputs.blueLeft = !!d.blueLeft;
             } else if (d.type === 'reset') {
                 if (state.won) { state.won = false; state.levelIndex = 0; state.hearts = 5; loadLevel(0, true); }
@@ -987,7 +1069,11 @@ function startHostSession() {
         c.on('close', () => {
             remoteInputs.blueJump = false;
             remoteInputs.blueLeft = false;
+            remoteJumpPulse = false;
         });
+
+        if (c.open) activateHost();
+        else c.on('open', activateHost);
     });
 }
 
@@ -1030,33 +1116,68 @@ function connectToHost() {
     cleanupPeer();
     roomCode = code;
     joinStatus.textContent = 'Verbinde mit Raum ' + code + '...';
-    peer = new Peer();
+    peer = new Peer(PEER_CONFIG);
+
+    connectTimeout = setTimeout(() => {
+        if (netMode !== 'client') {
+            cleanupPeer();
+            joinStatus.textContent = 'Zeitüberschreitung – Raum ' + code + ' nicht gefunden.';
+        }
+    }, 10000);
 
     peer.on('open', () => {
         const c = peer.connect('igel-' + code, { reliable: false });
         conn = c;
-        c.on('open', () => {
+        let clientStarted = false;
+
+        const activateClient = () => {
+            if (clientStarted) return;
+            clientStarted = true;
+            if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
             netMode = 'client';
             netTarget = null;
+            hasReceivedInitialState = false;
+            lastStateSeq = -1;
+            inputSeq = 0;
+            lastSentBlue = { blueJump: false, blueLeft: false };
             menuOverlay.classList.add('hidden');
             sendBlueInputs(true);
-        });
+            if (clientInputTimer) clearInterval(clientInputTimer);
+            clientInputTimer = setInterval(() => sendBlueInputs(true), 40);
+        };
+
         c.on('data', d => {
-            if (d && d.type === 'state') applyClientState(d);
+            if (!d) return;
+            if (!clientStarted) activateClient();
+            if (d.type === 'state') applyClientState(d);
         });
         c.on('close', () => {
+            if (clientInputTimer) { clearInterval(clientInputTimer); clientInputTimer = null; }
+            netMode = 'local';
             joinStatus.textContent = 'Verbindung getrennt.';
             menuOverlay.classList.remove('hidden');
             joinPanel.classList.remove('hidden');
             mainMenu.classList.add('hidden');
         });
+        c.on('error', err => {
+            joinStatus.textContent = 'Verbindungsfehler: ' + (err.type || err.message || 'Unbekannt');
+        });
+
+        if (c.open) activateClient();
+        else c.on('open', activateClient);
     });
     peer.on('error', err => {
-        joinStatus.textContent = 'Verbindung fehlgeschlagen (' + (err.type || 'Fehler') + ').';
+        if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
+        joinStatus.textContent = err && err.type === 'peer-unavailable'
+            ? 'Raum ' + code + ' existiert nicht.'
+            : 'Verbindung fehlgeschlagen (' + (err.type || 'Fehler') + ').';
     });
 }
 
 document.getElementById('btnConnect').addEventListener('click', connectToHost);
+codeInput.addEventListener('input', () => {
+    codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 4);
+});
 codeInput.addEventListener('keydown', e => { if (e.key === 'Enter') connectToHost(); });
 
 loadLevel(0, true);
