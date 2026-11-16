@@ -19,18 +19,18 @@ const LEVEL_MODULES = [
     },
     // 1: Kiste & Bodenschalter mit Stachelgrube
     (sx, sy, id, rng) => {
-        const ledgeY = sy - 90, pitY = 520, endY = sy;
-        platforms.push({ x: sx, y: sy, w: 680, h: GAME_H - sy }, { x: sx + 160, y: ledgeY, w: 190, h: 30 }, { x: sx + 680, y: pitY, w: 240, h: GAME_H - pitY }, { x: sx + 920, y: endY, w: 140, h: GAME_H - endY });
+        const ledgeY = sy - 66, pitY = 520, endY = sy;
+        platforms.push({ x: sx, y: sy, w: 680, h: GAME_H - sy }, { x: sx + 160, y: ledgeY, w: 190, h: 30 }, { x: sx + 680, y: pitY, w: 165, h: GAME_H - pitY }, { x: sx + 845, y: endY, w: 155, h: GAME_H - endY });
         boxes.push({ x: sx + 210 + Math.floor(rng() * 40), y: ledgeY - 52, w: 48, h: 48, vx: 0, vy: 0 });
         buttons.push({ id, x: sx + 460, y: sy - 12, w: 64, h: 12, pressed: false });
         gates.push({ id, x: sx + 590, y: sy - 160, w: 28, h: 160, openH: 0 });
-        hazards.push({ x: sx + 715, y: pitY - 16, w: 170, h: 16 });
+        hazards.push({ x: sx + 705, y: pitY - 16, w: 115, h: 16 });
         if (rng() > 0.45) zombies.push({ x: sx + 420, y: sy, dir: -1, dead: false });
-        return { width: 1060, endY };
+        return { width: 1000, endY };
     },
     // 2: Katapult-Wanddurchbruch & Zombie-Wache
     (sx, sy, id, rng) => {
-        const upY = Math.max(340, sy - 90);
+        const upY = Math.max(340, sy - 64);
         platforms.push({ x: sx, y: sy, w: 300, h: GAME_H - sy }, { x: sx + 300, y: upY, w: 580, h: GAME_H - upY });
         breakables.push({ x: sx + 520, y: upY - 120, w: 36, h: 120, type: 'wall' });
         zombies.push({ x: sx + 740, y: upY, dir: -1, dead: false });
@@ -111,26 +111,31 @@ const LEVEL_MODULES = [
         breakables.push({ x: sx + 830, y: dropY - 120, w: 36, h: 120, type: 'wall' });
         return { width: 1020, endY: dropY };
     },
-    // 11 (NEU - Leicht 1): Hängebrücke über Stachelgrube
+    // 11 (Leicht 1): Hängebrücke über unüberspringbarer Stachelgrube mit Torwand
     (sx, sy) => {
-        const pitY = 535;
-        platforms.push({ x: sx, y: sy, w: 290, h: GAME_H - sy }, { x: sx + 290, y: pitY, w: 250, h: GAME_H - pitY }, { x: sx + 540, y: sy, w: 280, h: GAME_H - sy });
-        hazards.push({ x: sx + 315, y: pitY - 16, w: 200, h: 16 });
-        ropeBridges.push({ ropeX: sx + 415, ropeY: Math.max(85, sy - 275), x: sx + 300, y: Math.max(195, sy - 165), w: 230, h: 18, targetY: pitY - 34, vy: 0, cut: false, settled: false });
-        zombies.push({ x: sx + 690, y: sy, dir: -1, dead: false });
-        return { width: 820, endY: sy };
+        const pitY = 540;
+        platforms.push(
+            { x: sx, y: sy, w: 280, h: GAME_H - sy },
+            { x: sx + 280, y: pitY, w: 360, h: GAME_H - pitY },
+            { x: sx + 640, y: sy, w: 270, h: GAME_H - sy },
+            { x: sx + 640, y: 0, w: 46, h: sy - 64 }
+        );
+        hazards.push({ x: sx + 300, y: pitY - 16, w: 320, h: 16 });
+        ropeBridges.push({ ropeX: sx + 455, ropeY: Math.max(70, sy - 275), x: sx + 288, y: Math.max(185, sy - 160), w: 344, h: 18, targetY: pitY - 34, vy: 0, cut: false, settled: false });
+        zombies.push({ x: sx + 795, y: sy, dir: -1, dead: false });
+        return { width: 910, endY: sy };
     },
-    // 12 (NEU - Leicht 2): Farb-Trittsteine (Blau hält, Rot rollt)
+    // 12 (Leicht 2): Farb-Trittsteine (Aktivieren-Knopf Blau & Rot)
     (sx, sy) => {
         const endY = Math.max(380, sy - 30);
-        platforms.push({ x: sx, y: sy, w: 230, h: GAME_H - sy }, { x: sx + 710, y: endY, w: 230, h: GAME_H - endY });
+        platforms.push({ x: sx, y: sy, w: 220, h: GAME_H - sy }, { x: sx + 695, y: endY, w: 225, h: GAME_H - endY });
         colorPlatforms.push(
-            { x: sx + 305, y: sy - 22, w: 120, h: 20, color: 'blue' },
-            { x: sx + 515, y: endY - 12, w: 120, h: 20, color: 'red' }
+            { x: sx + 285, y: sy - 24, w: 130, h: 20, color: 'blue' },
+            { x: sx + 490, y: endY - 14, w: 130, h: 20, color: 'red' }
         );
-        return { width: 940, endY };
+        return { width: 920, endY };
     },
-    // 13 (NEU - Mittel 1): Glasboden-Stampfer auf Schild-Käfer
+    // 13 (Mittel 1): Glasboden-Stampfer auf Marienkäfer-Schild
     (sx, sy, id) => {
         const topY = Math.max(240, sy - 190), botY = 505, endY = 470;
         platforms.push(
@@ -147,19 +152,20 @@ const LEVEL_MODULES = [
         gates.push({ id, x: sx + 770, y: botY - 170, w: 28, h: 170, openH: 0 });
         return { width: 1020, endY };
     },
-    // 14 (NEU - Mittel 2): Wespen-Luftraum & Seil-Abwurf
+    // 14 (Mittel 2): Wespen-Luftraum & Seil-Abwurf mit Torwand
     (sx, sy) => {
-        const pitY = 535, midY = Math.max(350, sy - 55), endY = sy;
+        const pitY = 540, midY = Math.max(350, sy - 35), endY = sy;
         platforms.push(
-            { x: sx, y: sy, w: 250, h: GAME_H - sy },
-            { x: sx + 470, y: midY, w: 210, h: 34 },
-            { x: sx + 680, y: pitY, w: 260, h: GAME_H - pitY },
-            { x: sx + 940, y: endY, w: 220, h: GAME_H - endY }
+            { x: sx, y: sy, w: 240, h: GAME_H - sy },
+            { x: sx + 370, y: midY, w: 260, h: 34 },
+            { x: sx + 630, y: pitY, w: 350, h: GAME_H - pitY },
+            { x: sx + 980, y: endY, w: 220, h: GAME_H - endY },
+            { x: sx + 980, y: 0, w: 46, h: endY - 64 }
         );
-        wasps.push({ x: sx + 360, y: midY - 55, baseX: sx + 360, baseY: midY - 55, rangeX: 55, phase: 0, dead: false });
-        hazards.push({ x: sx + 705, y: pitY - 16, w: 210, h: 16 });
-        ropeBridges.push({ ropeX: sx + 810, ropeY: Math.max(85, midY - 270), x: sx + 690, y: Math.max(195, midY - 160), w: 240, h: 18, targetY: pitY - 34, vy: 0, cut: false, settled: false });
-        return { width: 1160, endY };
+        wasps.push({ x: sx + 305, y: midY - 52, baseX: sx + 305, baseY: midY - 52, rangeX: 42, phase: 0, dead: false });
+        hazards.push({ x: sx + 650, y: pitY - 16, w: 310, h: 16 });
+        ropeBridges.push({ ropeX: sx + 800, ropeY: Math.max(70, midY - 265), x: sx + 638, y: Math.max(185, midY - 155), w: 334, h: 18, targetY: pitY - 34, vy: 0, cut: false, settled: false });
+        return { width: 1200, endY };
     },
     // 15 (Experte ab Level 6): Die Wind-Waage (Kippschalter)
     (sx, sy) => {
@@ -195,39 +201,40 @@ const LEVEL_MODULES = [
         gates.push({ id, x: sx + 1080, y: endY - 165, w: 28, h: 165, openH: 0 });
         return { width: 1190, endY };
     },
-    // 18 (NEU - Schwer 1 / Experte ab Level 6): Farb-Staffel im Wespen-Schwarm
+    // 18 (Schwer 1 / Experte ab Level 6): Farb-Staffel im Wespen-Schwarm
     (sx, sy) => {
         const endY = Math.max(360, sy - 50);
-        platforms.push({ x: sx, y: sy, w: 210, h: GAME_H - sy }, { x: sx + 1030, y: endY, w: 210, h: GAME_H - endY });
+        platforms.push({ x: sx, y: sy, w: 200, h: GAME_H - sy }, { x: sx + 895, y: endY, w: 215, h: GAME_H - endY });
         colorPlatforms.push(
-            { x: sx + 295, y: sy - 24, w: 100, h: 20, color: 'red' },
-            { x: sx + 555, y: sy - 52, w: 105, h: 20, color: 'blue' },
-            { x: sx + 815, y: endY - 14, w: 100, h: 20, color: 'red' }
+            { x: sx + 275, y: sy - 20, w: 120, h: 20, color: 'red' },
+            { x: sx + 485, y: sy - 42, w: 120, h: 20, color: 'blue' },
+            { x: sx + 695, y: endY - 10, w: 120, h: 20, color: 'red' }
         );
         wasps.push(
-            { x: sx + 475, y: sy - 115, baseX: sx + 475, baseY: sy - 115, rangeX: 45, phase: 0.4, dead: false },
-            { x: sx + 735, y: endY - 95, baseX: sx + 735, baseY: endY - 95, rangeX: 45, phase: 2.2, dead: false }
+            { x: sx + 440, y: sy - 95, baseX: sx + 440, baseY: sy - 95, rangeX: 38, phase: 0.4, dead: false },
+            { x: sx + 650, y: endY - 82, baseX: sx + 650, baseY: endY - 82, rangeX: 38, phase: 2.2, dead: false }
         );
-        return { width: 1240, endY };
+        return { width: 1110, endY };
     },
-    // 19 (NEU - Schwer 2 / Experte ab Level 6): Dreifach-Timing (Farb-Absprung -> Seil-Schnitt -> Käfer-Bruch)
+    // 19 (Schwer 2 / Experte ab Level 6): Dreifach-Timing (Farb-Absprung -> Käfer-Bruch -> Seil-Schnitt)
     (sx, sy, id) => {
-        const pitY = 535, highY = Math.max(255, sy - 165), endY = 465;
+        const pitY = 540, highY = Math.max(255, sy - 110), endY = 495;
         platforms.push(
             { x: sx, y: sy, w: 190, h: GAME_H - sy },
             { x: sx + 410, y: highY, w: 145, h: 30 },
             { x: sx + 665, y: highY, w: 145, h: 30 },
-            { x: sx + 410, y: pitY, w: 720, h: GAME_H - pitY },
-            { x: sx + 1130, y: endY, w: 160, h: GAME_H - endY }
+            { x: sx + 410, y: pitY, w: 760, h: GAME_H - pitY },
+            { x: sx + 1170, y: endY, w: 170, h: GAME_H - endY },
+            { x: sx + 1170, y: 0, w: 46, h: endY - 64 }
         );
-        colorPlatforms.push({ x: sx + 255, y: sy - 55, w: 95, h: 20, color: 'blue' });
+        colorPlatforms.push({ x: sx + 245, y: sy - 48, w: 105, h: 20, color: 'blue' });
         breakables.push({ x: sx + 555, y: highY, w: 110, h: 30, type: 'floor' });
         beetles.push({ x: sx + 610, y: pitY, dir: -1, dead: false });
-        hazards.push({ x: sx + 790, y: pitY - 16, w: 290, h: 16 });
-        ropeBridges.push({ ropeX: sx + 935, ropeY: Math.max(70, highY - 230), x: sx + 775, y: Math.max(175, highY - 125), w: 320, h: 18, targetY: pitY - 34, vy: 0, cut: false, settled: false });
+        hazards.push({ x: sx + 830, y: pitY - 16, w: 320, h: 16 });
+        ropeBridges.push({ ropeX: sx + 985, ropeY: Math.max(70, highY - 220), x: sx + 818, y: Math.max(175, highY - 115), w: 344, h: 18, targetY: pitY - 34, vy: 0, cut: false, settled: false });
         buttons.push({ id, x: sx + 455, y: pitY - 12, w: 64, h: 12, pressed: false, sticky: true });
-        gates.push({ id, x: sx + 1175, y: endY - 165, w: 28, h: 165, openH: 0 });
-        return { width: 1290, endY };
+        gates.push({ id, x: sx + 1235, y: endY - 165, w: 28, h: 165, openH: 0 });
+        return { width: 1340, endY };
     }
 ];
 

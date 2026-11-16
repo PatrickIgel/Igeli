@@ -9,7 +9,7 @@ let stateSeq = 0, lastStateSeq = -1, lastResetSeq = -1;
 let inputSeq = 0, lastInputSeq = -1;
 let jumpPressCount = 0, lastRemoteJumpCount = 0;
 let isConnecting = false;
-let lastSentBlue = { blueJump: false, blueLeft: false };
+let lastSentBlue = { blueJump: false, blueLeft: false, blueAct: false };
 
 const PEER_CONFIG = {
     config: {
@@ -25,14 +25,16 @@ function sendBlueInputs(force = false) {
     if (netMode !== 'client' || !conn || !conn.open) return;
     const blueJump = !!(inputs.blueJump || keys.blueJump);
     const blueLeft = !!(inputs.blueLeft || keys.blueLeft);
+    const blueAct = !!(inputs.blueAct || keys.blueAct);
     const justPressedJump = blueJump && !lastSentBlue.blueJump;
     if (justPressedJump) jumpPressCount++;
-    if (force || blueJump !== lastSentBlue.blueJump || blueLeft !== lastSentBlue.blueLeft) {
+    if (force || blueJump !== lastSentBlue.blueJump || blueLeft !== lastSentBlue.blueLeft || blueAct !== lastSentBlue.blueAct) {
         lastSentBlue.blueJump = blueJump;
         lastSentBlue.blueLeft = blueLeft;
+        lastSentBlue.blueAct = blueAct;
         inputSeq++;
         try {
-            conn.send({ type: 'input', seq: inputSeq, blueJump, blueLeft, jumpPressCount });
+            conn.send({ type: 'input', seq: inputSeq, blueJump, blueLeft, blueAct, jumpPressCount });
         } catch (e) {}
     }
 }
@@ -50,7 +52,8 @@ function sendGameState() {
             hearts: state.hearts,
             won: state.won,
             gameOver: state.gameOver,
-            blueHeld: state.blueHeld,
+            redActHeld: state.redActHeld,
+            blueActHeld: state.blueActHeld,
             camX: state.camX,
             p: {
                 x: player.x, y: player.y, vx: player.vx, vy: player.vy,
@@ -94,7 +97,8 @@ function applyClientState(d) {
     state.hearts = d.hearts;
     state.won = !!d.won;
     state.gameOver = !!d.gameOver;
-    if (d.blueHeld !== undefined) state.blueHeld = !!d.blueHeld;
+    if (d.redActHeld !== undefined) state.redActHeld = !!d.redActHeld;
+    if (d.blueActHeld !== undefined) state.blueActHeld = !!d.blueActHeld;
 
     if (levelChanged) {
         loadLevel(state.levelIndex, false);
@@ -259,6 +263,7 @@ function startHostSession() {
             lastRemoteJumpCount = 0;
             remoteInputs.blueJump = false;
             remoteInputs.blueLeft = false;
+            remoteInputs.blueAct = false;
             remoteJumpPulse = false;
             menuOverlay.classList.add('hidden');
             state.levelIndex = 0;
@@ -288,6 +293,7 @@ function startHostSession() {
                 }
                 remoteInputs.blueJump = nextJump;
                 remoteInputs.blueLeft = !!d.blueLeft;
+                remoteInputs.blueAct = !!d.blueAct;
             } else if (d.type === 'reset') {
                 if (state.won || state.gameOver) {
                     state.won = false; state.gameOver = false; state.levelIndex = 0; state.hearts = 5;
@@ -301,6 +307,7 @@ function startHostSession() {
         c.on('close', () => {
             remoteInputs.blueJump = false;
             remoteInputs.blueLeft = false;
+            remoteInputs.blueAct = false;
             remoteJumpPulse = false;
         });
 
@@ -376,7 +383,7 @@ function connectToHost() {
             lastResetSeq = -1;
             inputSeq = 0;
             jumpPressCount = 0;
-            lastSentBlue = { blueJump: false, blueLeft: false };
+            lastSentBlue = { blueJump: false, blueLeft: false, blueAct: false };
             menuOverlay.classList.add('hidden');
             sendBlueInputs(true);
             if (clientInputTimer) clearInterval(clientInputTimer);

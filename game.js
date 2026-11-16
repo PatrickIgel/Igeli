@@ -3,23 +3,25 @@ const ctx = canvas.getContext('2d', { alpha: false });
 const GAME_W = 1280, GAME_H = 720, MAX_LEVELS = 10;
 
 let view = { scale: 1, offsetX: 0, offsetY: 0, rotation: 0 };
-const inputs = { redRight: false, redCurl: false, blueJump: false, blueLeft: false };
-const keys = { redRight: false, redCurl: false, blueJump: false, blueLeft: false };
-const remoteInputs = { blueJump: false, blueLeft: false };
+const inputs = { redRight: false, redCurl: false, redAct: false, blueAct: false, blueJump: false, blueLeft: false };
+const keys = { redRight: false, redCurl: false, redAct: false, blueAct: false, blueJump: false, blueLeft: false };
+const remoteInputs = { blueJump: false, blueLeft: false, blueAct: false };
 let remoteJumpPulse = false;
 const activePointers = new Map();
 
 const controlButtons = [
-    { id: 'redRight', x: 155, y: 615, r: 54, hitR: 70, color: '#e5534b', label: 'RECHTS', sub: 'Laufen' },
-    { id: 'redCurl',  x: 315, y: 615, r: 54, hitR: 70, color: '#e5534b', label: 'KUGEL',  sub: 'Schwer/Anker' },
-    { id: 'blueJump', x: 965, y: 615, r: 54, hitR: 70, color: '#20b8f9', label: 'SPRUNG', sub: 'Katapult' },
-    { id: 'blueLeft', x: 1125,y: 615, r: 54, hitR: 70, color: '#20b8f9', label: 'LINKS',  sub: 'Laufen' }
+    { id: 'redRight', x: 115,  y: 620, r: 48, hitR: 62, color: '#e5534b', label: 'RECHTS', sub: 'Laufen' },
+    { id: 'redCurl',  x: 245,  y: 620, r: 48, hitR: 62, color: '#e5534b', label: 'KUGEL',  sub: 'Schwer/Anker' },
+    { id: 'redAct',   x: 375,  y: 620, r: 48, hitR: 62, color: '#e5534b', label: 'AKTIV',  sub: 'Rot-Schalter' },
+    { id: 'blueAct',  x: 905,  y: 620, r: 48, hitR: 62, color: '#20b8f9', label: 'AKTIV',  sub: 'Blau-Schalter' },
+    { id: 'blueJump', x: 1035, y: 620, r: 48, hitR: 62, color: '#20b8f9', label: 'SPRUNG', sub: 'Katapult' },
+    { id: 'blueLeft', x: 1165, y: 620, r: 48, hitR: 62, color: '#20b8f9', label: 'LINKS',  sub: 'Laufen' }
 ];
 const uiButtons = { resetRoom: { x: GAME_W / 2 - 90, y: GAME_H - 52, w: 180, h: 40 }, sound: { x: GAME_W - 68, y: 14, w: 52, h: 42 } };
 
 function getVisibleControlButtons() {
-    if (netMode === 'host') return controlButtons.filter(b => b.id === 'redRight' || b.id === 'redCurl');
-    if (netMode === 'client') return controlButtons.filter(b => b.id === 'blueJump' || b.id === 'blueLeft');
+    if (netMode === 'host') return controlButtons.filter(b => b.id.startsWith('red'));
+    if (netMode === 'client') return controlButtons.filter(b => b.id.startsWith('blue'));
     return controlButtons;
 }
 
@@ -38,7 +40,7 @@ function playTone(freq, type, dur, vol = 0.1, slide = null) {
     } catch (e) {}
 }
 
-const state = { levelIndex: 0, levelSeed: (Math.random() * 1e9) | 0, hearts: 5, camX: 0, won: false, gameOver: false, resetSeq: 0, blueHeld: false };
+const state = { levelIndex: 0, levelSeed: (Math.random() * 1e9) | 0, hearts: 5, camX: 0, won: false, gameOver: false, resetSeq: 0, redActHeld: false, blueActHeld: false };
 const player = { x: 140, y: 380, vx: 0, vy: 0, r: 24, grounded: false, curled: false, rot: 0, facing: 1, aimState: 0, aimAngle: 0.78, aimDir: 1, slingshotCharge: 0, catapultFlight: false, invuln: 0, wasJumpPressed: false };
 let platforms = [], boxes = [], buttons = [], gates = [], breakables = [], winds = [], hazards = [], zombies = [], mushrooms = [], ramps = [], seesaws = [], goalX = 2000;
 let colorPlatforms = [], ropeBridges = [], wasps = [], beetles = [];
@@ -49,56 +51,42 @@ function populateCoopExtras(idx) {
     let s = ((state.levelSeed || 1) + (idx + 1) * 7919) >>> 0;
     const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
 
-    // 1. Magnet-/Farb-Plattformen & Wespen in breiten Abgründen
+    // 1. Farb-Plattformen & Wespen in breiten Abgründen (auf angepasste Sprungweite abgestimmt)
     for (let i = 0; i < platforms.length - 1; i++) {
         const p1 = platforms[i], p2 = platforms[i + 1];
+        if (p1.y < 120 || p2.y < 120) continue; // Deckenwände ignorieren
         const gapStart = p1.x + p1.w, gapEnd = p2.x;
         const gap = gapEnd - gapStart;
-        if (gap >= 175 && gap <= 420) {
+        if (gap >= 145 && gap <= 340) {
             const midX = (gapStart + gapEnd) / 2;
-            const midY = Math.min(p1.y, p2.y) - 12;
-            if (gap >= 280) {
-                colorPlatforms.push({ x: gapStart + gap * 0.28 - 45, y: midY, w: 90, h: 20, color: 'red' });
-                colorPlatforms.push({ x: gapStart + gap * 0.72 - 45, y: midY - 16, w: 90, h: 20, color: 'blue' });
+            const midY = Math.min(p1.y, p2.y) - 10;
+            if (gap >= 245) {
+                colorPlatforms.push({ x: gapStart + gap * 0.28 - 50, y: midY, w: 100, h: 20, color: 'red' });
+                colorPlatforms.push({ x: gapStart + gap * 0.72 - 50, y: midY - 14, w: 100, h: 20, color: 'blue' });
             } else {
                 const col = (i + idx) % 2 === 0 ? 'red' : 'blue';
-                colorPlatforms.push({ x: midX - 52, y: midY, w: 104, h: 20, color: col });
+                colorPlatforms.push({ x: midX - 55, y: midY, w: 110, h: 20, color: col });
             }
-            if (rnd() < 0.65) {
-                wasps.push({ x: midX, y: midY - 95, baseX: midX, baseY: midY - 95, rangeX: Math.min(75, gap * 0.28), phase: rnd() * Math.PI * 2, dead: false });
+            if (rnd() < 0.6) {
+                wasps.push({ x: midX, y: midY - 88, baseX: midX, baseY: midY - 88, rangeX: Math.min(60, gap * 0.24), phase: rnd() * Math.PI * 2, dead: false });
             }
         }
     }
 
-    // 2. Zerbrechliche Ketten / Hängebrücken über Stachelgruben
-    for (const hz of hazards) {
-        if (hz.w >= 60 && hz.w <= 220) {
-            const bw = hz.w + 28;
-            const bx = hz.x - 14;
-            const targetY = hz.y - 16;
-            const startY = Math.max(120, targetY - 155);
-            const ropeY = Math.max(40, startY - 110);
-            ropeBridges.push({
-                ropeX: bx + bw / 2, ropeY, x: bx, y: startY, w: bw, h: 18,
-                targetY, vy: 0, cut: false, settled: false
-            });
-        }
-    }
-
-    // 3. Schild-Käfer unter Glasböden & auf breiten Plattformen
+    // 2. Marienkäfer mit Schild unter Glasböden & auf breiten Plattformen
     for (const br of breakables) {
         if (br.type === 'floor' && br.w >= 70) {
-            const below = platforms.find(p => br.x + br.w / 2 >= p.x + 20 && br.x + br.w / 2 <= p.x + p.w - 20 && p.y > br.y + 40 && p.y - br.y < 240);
+            const below = platforms.find(p => p.y > 120 && br.x + br.w / 2 >= p.x + 20 && br.x + br.w / 2 <= p.x + p.w - 20 && p.y > br.y + 40 && p.y - br.y < 240);
             if (below) {
                 beetles.push({ x: br.x + br.w / 2, y: below.y, dir: -1, dead: false });
             }
         }
     }
     for (const p of platforms) {
-        if (p.w >= 360 && p.x > 420 && p.x + p.w < goalX - 220) {
+        if (p.y > 120 && p.w >= 360 && p.x > 420 && p.x + p.w < goalX - 220) {
             const hasHaz = hazards.some(h => h.x < p.x + p.w && h.x + h.w > p.x);
             const hasBeetle = beetles.some(b => Math.abs(b.y - p.y) < 10 && b.x >= p.x && b.x <= p.x + p.w);
-            if (!hasHaz && !hasBeetle && rnd() < 0.55) {
+            if (!hasHaz && !hasBeetle && rnd() < 0.5) {
                 beetles.push({ x: p.x + p.w * 0.65, y: p.y, dir: -1, dead: false });
             }
         }
@@ -130,7 +118,7 @@ function rectOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
 }
 
 function isColorPlatformActive(cp) {
-    return cp.color === 'red' ? player.curled : state.blueHeld;
+    return cp.color === 'red' ? state.redActHeld : state.blueActHeld;
 }
 
 function launchCatapult() {
@@ -143,7 +131,7 @@ function launchCatapult() {
 
 function update(dt) {
     if (netMode === 'client') {
-        state.blueHeld = !!(inputs.blueJump || keys.blueJump);
+        state.blueActHeld = !!(inputs.blueAct || keys.blueAct);
         const f = Math.min(1, 20 * dt);
         if (player.invuln > 0) player.invuln = Math.max(0, player.invuln - dt);
         if (netTarget) {
@@ -169,8 +157,12 @@ function update(dt) {
     const left = netMode === 'host' ? remoteInputs.blueLeft : (inputs.blueLeft || keys.blueLeft);
     const right = inputs.redRight || keys.redRight;
     const curl = inputs.redCurl || keys.redCurl;
+    const redAct = inputs.redAct || keys.redAct;
+    const blueAct = netMode === 'host' ? remoteInputs.blueAct : (inputs.blueAct || keys.blueAct);
     const jump = netMode === 'host' ? (remoteInputs.blueJump || remoteJumpPulse) : (inputs.blueJump || keys.blueJump);
-    state.blueHeld = !!(netMode === 'host' ? remoteInputs.blueJump : jump);
+
+    state.redActHeld = !!redAct;
+    state.blueActHeld = !!blueAct;
 
     const jumpJustPressed = jump && !player.wasJumpPressed;
     player.wasJumpPressed = jump;
@@ -198,12 +190,12 @@ function update(dt) {
     } else {
         player.slingshotCharge = 0; player.aimState = 0;
         if (player.grounded) player.catapultFlight = false;
-        const moveSpeed = player.curled ? 180 : 250;
+        const moveSpeed = player.curled ? 125 : 175;
         let targetVx = (left ? -moveSpeed : 0) + (right ? moveSpeed : 0);
-        if (!player.catapultFlight) player.vx += (targetVx - player.vx) * Math.min(1, 10 * dt);
+        if (!player.catapultFlight) player.vx += (targetVx - player.vx) * Math.min(1, 8 * dt);
         else if (targetVx !== 0) player.vx += targetVx * 1.1 * dt;
         if (jumpJustPressed && player.grounded) {
-            player.vy = -490; player.grounded = false;
+            player.vy = -385; player.grounded = false;
             playTone(320, 'sine', 0.16, 0.12, 540);
         }
     }
@@ -359,7 +351,7 @@ function update(dt) {
         if (z.dead) continue;
         const chase = Math.abs(player.y - (z.y - 24)) < 75 && Math.abs(player.x - z.x) < 340;
         if (chase && Math.abs(player.x - z.x) > 8) z.dir = player.x < z.x ? -1 : 1;
-        const nextX = z.x + z.dir * (chase ? 105 : 60) * dt;
+        const nextX = z.x + z.dir * (chase ? 85 : 52) * dt;
         const lookX = nextX + z.dir * 16;
         const hasFloor = solids.some(s => lookX >= s.x && lookX <= s.x + s.w && Math.abs(s.y - z.y) < 10) ||
             breakables.some(br => br.type === 'floor' && lookX >= br.x && lookX <= br.x + br.w && Math.abs(br.y - z.y) < 10);
@@ -367,7 +359,7 @@ function update(dt) {
             breakables.some(br => br.type === 'wall' && rectOverlap(nextX - 14, z.y - 46, 28, 40, br.x, br.y, br.w, br.h));
         if (hasFloor && !hitWall && nextX > 40) z.x = nextX; else z.dir *= -1;
         if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, z.x - 18, z.y - 48, 36, 48)) {
-            if (player.curled) { z.dead = true; if (player.vy > 0) player.vy = -320; playTone(190, 'square', 0.22, 0.16, 65); }
+            if (player.curled) { z.dead = true; if (player.vy > 0) player.vy = -300; playTone(190, 'square', 0.22, 0.16, 65); }
             else hurtPlayer();
         }
     }
@@ -375,13 +367,13 @@ function update(dt) {
     // Flug-Gegner (Wespen): nur durch gezielten Katapult-Schuss aus der Luft zu holen
     for (const w of wasps) {
         if (w.dead) continue;
-        w.phase += dt * 2.1;
+        w.phase += dt * 2.0;
         w.x = w.baseX + Math.sin(w.phase) * w.rangeX;
-        w.y = w.baseY + Math.sin(w.phase * 2) * 16;
+        w.y = w.baseY + Math.sin(w.phase * 2) * 14;
         if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, w.x - 20, w.y - 16, 40, 32)) {
             if (player.catapultFlight) {
                 w.dead = true;
-                player.vy = -340;
+                player.vy = -300;
                 playTone(250, 'square', 0.22, 0.16, 75);
             } else {
                 hurtPlayer();
@@ -389,26 +381,26 @@ function update(dt) {
         }
     }
 
-    // Schild-Käfer: von vorne/seitlich unverwundbar, nur von oben (Sprung/Glasboden) besiegbar
+    // Marienkäfer mit Schild: vorne durch Schild geschützt, nur von oben (Sprung/Glasboden) besiegbar
     for (const bt of beetles) {
         if (bt.dead) continue;
-        const nextX = bt.x + bt.dir * 52 * dt;
-        const lookX = nextX + bt.dir * 20;
+        const nextX = bt.x + bt.dir * 45 * dt;
+        const lookX = nextX + bt.dir * 22;
         const hasFloor = solids.some(s => lookX >= s.x && lookX <= s.x + s.w && Math.abs(s.y - bt.y) < 10) ||
             breakables.some(br => br.type === 'floor' && lookX >= br.x && lookX <= br.x + br.w && Math.abs(br.y - bt.y) < 10);
-        const hitWall = solids.some(s => rectOverlap(nextX - 18, bt.y - 34, 36, 30, s.x, s.y, s.w, s.h));
+        const hitWall = solids.some(s => rectOverlap(nextX - 18, bt.y - 36, 36, 32, s.x, s.y, s.w, s.h));
         if (hasFloor && !hitWall && nextX > 40) bt.x = nextX; else bt.dir *= -1;
 
-        if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, bt.x - 22, bt.y - 36, 44, 36)) {
-            const fromAbove = prevVy >= 0 && (player.y + player.r - prevVy * dt) <= bt.y - 22;
+        if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, bt.x - 24, bt.y - 40, 48, 40)) {
+            const fromAbove = prevVy >= 0 && (player.y + player.r - prevVy * dt) <= bt.y - 24;
             if (fromAbove) {
                 bt.dead = true;
-                player.vy = -380;
+                player.vy = -330;
                 playTone(210, 'square', 0.22, 0.16, 65);
             } else if (player.curled) {
                 const pushDir = player.x < bt.x ? -1 : 1;
-                player.x = bt.x + pushDir * (22 + player.r + 2);
-                player.vx = pushDir * 260;
+                player.x = bt.x + pushDir * (24 + player.r + 2);
+                player.vx = pushDir * 220;
                 playTone(300, 'triangle', 0.12, 0.14, 180);
             } else {
                 hurtPlayer();
@@ -481,6 +473,113 @@ function drawHedgehog() {
     ctx.restore();
 }
 
+function drawLadybug(bt) {
+    ctx.save();
+    ctx.translate(bt.x, bt.y);
+    ctx.scale(bt.dir, 1);
+    const walk = Math.sin(performance.now() * 0.016 + bt.x * 0.08) * 3.5;
+
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#0d0f12';
+    ctx.lineJoin = 'round';
+
+    // Süße kleine Füßchen unten
+    ctx.fillStyle = '#2b1d14';
+    ctx.beginPath(); ctx.ellipse(-11 - walk, -4, 5.5, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0 + walk * 0.7, -4, 5.5, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(10 - walk, -4, 5.5, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    // Fühler am Kopf
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(11, -24); ctx.quadraticCurveTo(15, -35, 21, -35); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(15, -22); ctx.quadraticCurveTo(21, -31, 26, -30); ctx.stroke();
+    ctx.fillStyle = '#e5534b';
+    ctx.beginPath(); ctx.arc(21, -35, 3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(26, -30, 3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    // Süßer runder Kopf vorne
+    ctx.lineWidth = 4;
+    ctx.fillStyle = '#3d2514';
+    ctx.beginPath(); ctx.arc(11, -15, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    // Großes süßes Auge & rote Bäckchen (wie beim Igel)
+    ctx.fillStyle = '#0d0f12';
+    ctx.beginPath(); ctx.arc(14, -17, 3.8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(15.2, -18.3, 1.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(244, 114, 182, 0.65)';
+    ctx.beginPath(); ctx.ellipse(15, -11, 3.8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Leuchtender Marienkäfer-Panzer (Kuppel)
+    ctx.fillStyle = '#e5534b';
+    ctx.beginPath();
+    ctx.arc(-3, -7, 21, Math.PI, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Glanzlicht auf dem Panzer
+    ctx.strokeStyle = '#fca5a5';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.arc(-3, -7, 15, Math.PI * 1.15, Math.PI * 1.65);
+    ctx.stroke();
+
+    // Schwarze Marienkäfer-Punkte
+    ctx.fillStyle = '#0d0f12';
+    ctx.beginPath(); ctx.arc(-14, -13, 3.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-5, -20, 3.8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5, -13, 3.2, 0, Math.PI * 2); ctx.fill();
+
+    // Goldener Schwachpunkt-Kristall oben auf dem Panzer
+    ctx.strokeStyle = '#0d0f12';
+    ctx.lineWidth = 3.5;
+    ctx.fillStyle = '#facc15';
+    ctx.beginPath();
+    ctx.arc(-3, -30, 6.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#fef9c3';
+    ctx.beginPath();
+    ctx.arc(-4.5, -31.5, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ritter-Schild vorne (schützt gegen Frontalangriffe)
+    ctx.save();
+    ctx.translate(21, -17);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#0d0f12';
+    ctx.fillStyle = '#94a3b8';
+    ctx.beginPath();
+    ctx.moveTo(-7, -14);
+    ctx.lineTo(7, -14);
+    ctx.lineTo(7, 3);
+    ctx.quadraticCurveTo(7, 13, 0, 17);
+    ctx.quadraticCurveTo(-7, 13, -7, 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Schild-Innenfläche & goldenes Emblem
+    ctx.fillStyle = '#475569';
+    ctx.beginPath();
+    ctx.moveTo(-4, -10);
+    ctx.lineTo(4, -10);
+    ctx.lineTo(4, 2);
+    ctx.quadraticCurveTo(4, 9, 0, 12);
+    ctx.quadraticCurveTo(-4, 9, -4, 2);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#facc15';
+    ctx.beginPath();
+    ctx.arc(0, -1, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.restore();
+}
+
 function drawHeart(x, y, r, fill) {
     ctx.save(); ctx.translate(x, y); ctx.fillStyle = fill; ctx.strokeStyle = '#0d0f12'; ctx.lineWidth = 4; ctx.lineJoin = 'round';
     ctx.beginPath(); ctx.moveTo(0, r * 0.75);
@@ -548,11 +647,13 @@ function render() {
         const dirtGrad = ctx.createLinearGradient(0, p.y, 0, p.y + p.h);
         dirtGrad.addColorStop(0, '#7a5238'); dirtGrad.addColorStop(0.55, '#4e3322'); dirtGrad.addColorStop(1, '#26170e');
         ctx.fillStyle = dirtGrad; ctx.fillRect(p.x, p.y, p.w, p.h); ctx.strokeRect(p.x, p.y, p.w, p.h);
-        ctx.fillStyle = '#55b848'; ctx.fillRect(p.x - 2, p.y, p.w + 4, 20);
-        ctx.fillStyle = '#7ad667'; ctx.fillRect(p.x, p.y + 3, p.w, 6); ctx.strokeRect(p.x - 2, p.y, p.w + 4, 20);
+        if (p.y > 100) {
+            ctx.fillStyle = '#55b848'; ctx.fillRect(p.x - 2, p.y, p.w + 4, 20);
+            ctx.fillStyle = '#7ad667'; ctx.fillRect(p.x, p.y + 3, p.w, 6); ctx.strokeRect(p.x - 2, p.y, p.w + 4, 20);
+        }
     }
 
-    // Magnet-/Farb-Plattformen zeichnen
+    // Farb-Plattformen zeichnen
     for (const cp of colorPlatforms) {
         const act = isColorPlatformActive(cp);
         const baseCol = cp.color === 'red' ? '#e5534b' : '#20b8f9';
@@ -692,22 +793,8 @@ function render() {
         ctx.restore();
     }
 
-    // Schild-Käfer zeichnen
-    for (const bt of beetles) if (!bt.dead) {
-        ctx.save(); ctx.translate(bt.x, bt.y); ctx.scale(bt.dir, 1);
-        ctx.lineWidth = 4; ctx.strokeStyle = '#0d0f12';
-        ctx.fillStyle = '#334155';
-        ctx.beginPath(); ctx.arc(0, -14, 21, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
-        // Verwundbarer Schwachpunkt oben
-        ctx.fillStyle = '#facc15';
-        ctx.beginPath(); ctx.arc(-2, -33, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        // Massiver Frontschild
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillRect(14, -32, 10, 30); ctx.strokeRect(14, -32, 10, 30);
-        ctx.fillStyle = '#e5534b';
-        ctx.beginPath(); ctx.arc(19, -20, 3, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
-    }
+    // Süßer Marienkäfer mit Ritter-Schild zeichnen
+    for (const bt of beetles) if (!bt.dead) drawLadybug(bt);
 
     const goalPlatY = platforms[platforms.length - 1].y;
     ctx.fillStyle = '#e5e7eb'; ctx.fillRect(goalX, goalPlatY - 150, 12, 150); ctx.strokeRect(goalX, goalPlatY - 150, 12, 150);
@@ -749,7 +836,7 @@ function render() {
         ctx.lineWidth = 6; ctx.strokeStyle = '#0d0f12'; ctx.stroke();
         ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.beginPath(); ctx.arc(0, -b.r * 0.28, b.r * 0.65, Math.PI * 1.1, Math.PI * 1.9); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
-        ctx.font = 'bold 16px system-ui'; ctx.fillText(b.label, 0, -1); ctx.font = 'bold 12px system-ui'; ctx.fillText(b.sub, 0, 16);
+        ctx.font = 'bold 15px system-ui'; ctx.fillText(b.label, 0, -1); ctx.font = 'bold 11px system-ui'; ctx.fillText(b.sub, 0, 15);
         ctx.restore();
     }
 
@@ -772,7 +859,7 @@ function toGameCoords(clientX, clientY) {
     return { x: (dx * c - dy * s) / view.scale + GAME_W / 2, y: (dx * s + dy * c) / view.scale + GAME_H / 2 };
 }
 function syncPointers() {
-    inputs.redRight = inputs.redCurl = inputs.blueJump = inputs.blueLeft = false;
+    inputs.redRight = inputs.redCurl = inputs.redAct = inputs.blueAct = inputs.blueJump = inputs.blueLeft = false;
     const visibleBtns = getVisibleControlButtons();
     for (const pt of activePointers.values()) for (const b of visibleBtns) if (Math.hypot(pt.x - b.x, pt.y - b.y) <= b.hitR) inputs[b.id] = true;
 }
@@ -816,7 +903,14 @@ const endPtr = e => {
 canvas.addEventListener('pointerup', endPtr);
 canvas.addEventListener('pointercancel', endPtr);
 
-const keyMap = { KeyD: 'redRight', KeyS: 'redCurl', KeyW: 'blueJump', ArrowUp: 'blueJump', KeyA: 'blueLeft', ArrowLeft: 'blueLeft', ArrowRight: 'redRight', ArrowDown: 'redCurl' };
+const keyMap = {
+    KeyD: 'redRight', ArrowRight: 'redRight',
+    KeyS: 'redCurl', ArrowDown: 'redCurl',
+    KeyE: 'redAct', ShiftLeft: 'redAct',
+    KeyW: 'blueJump', ArrowUp: 'blueJump',
+    KeyA: 'blueLeft', ArrowLeft: 'blueLeft',
+    KeyQ: 'blueAct', ShiftRight: 'blueAct'
+};
 window.addEventListener('keydown', e => {
     if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
     if (keyMap[e.code]) { keys[keyMap[e.code]] = true; sendBlueInputs(true); }
