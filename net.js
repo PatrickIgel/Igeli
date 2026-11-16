@@ -49,6 +49,7 @@ function sendGameState() {
             resetSeq: state.resetSeq || 0,
             levelIndex: state.levelIndex,
             levelSeed: state.levelSeed,
+            levelModules: state.levelModules,
             hearts: state.hearts,
             won: state.won,
             gameOver: state.gameOver,
@@ -94,6 +95,7 @@ function applyClientState(d) {
     lastResetSeq = rSeq;
     state.levelIndex = d.levelIndex;
     state.levelSeed = d.levelSeed;
+    if (Array.isArray(d.levelModules)) state.levelModules = d.levelModules;
     state.hearts = d.hearts;
     state.won = !!d.won;
     state.gameOver = !!d.gameOver;
