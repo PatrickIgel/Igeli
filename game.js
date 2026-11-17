@@ -193,7 +193,6 @@ function update(dt) {
         const moveSpeed = player.curled ? 125 : 175;
         let targetVx = (left ? -moveSpeed : 0) + (right ? moveSpeed : 0);
         if (!player.catapultFlight) player.vx += (targetVx - player.vx) * Math.min(1, 8 * dt);
-        else if (targetVx !== 0) player.vx += targetVx * 1.1 * dt;
         if (jumpJustPressed && player.grounded) {
             player.vy = -385; player.grounded = false;
             playTone(320, 'sine', 0.16, 0.12, 540);

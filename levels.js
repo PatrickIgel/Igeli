@@ -113,7 +113,7 @@ const LEVEL_MODULES = [
             );
             breakables.push({ x: sx + 430 + Math.floor(rng() * 50), y: topY, w: 110, h: 36, type: 'floor' });
             buttons.push({ id, x: sx + 340, y: botY - 12, w: 64, h: 12, pressed: false, sticky: true });
-            gates.push({ id, x: sx + 830, y: botY - 180, w: 28, h: 180, openH: 0 });
+            gates.push({ id, x: sx + 830, y: 0, w: 28, h: botY, openH: 0 });
             if (rng() > 0.3) spawnGroundEnemy(sx + 640, botY, rng, true);
             if (rng() > 0.65) wasps.push({ x: sx + 600, y: topY - 65, baseX: sx + 600, baseY: topY - 65, rangeX: 40, phase: rng() * 6, dead: false });
             return { width: 1060, endY };
@@ -130,7 +130,7 @@ const LEVEL_MODULES = [
             );
             breakables.push({ x: sx + 290, y: topY, w: 110, h: 36, type: 'floor' });
             buttons.push({ id, x: sx + 313, y: botY - 12, w: 64, h: 12, pressed: false, sticky: true });
-            gates.push({ id, x: sx + 690, y: botY - 175, w: 28, h: 175, openH: 0 });
+            gates.push({ id, x: sx + 690, y: 0, w: 28, h: botY, openH: 0 });
             winds.push({ x: sx + 785, y: endY - 70, w: 130, h: botY - endY + 80, vy: -575, vx: 0, active: true });
             if (rng() > 0.3) spawnGroundEnemy(sx + 520, botY, rng, true);
             return { width: 1060, endY };
@@ -151,7 +151,7 @@ const LEVEL_MODULES = [
         const btnX = mirrored ? (sx + 210) : (sx + 460);
         boxes.push({ x: boxX, y: ledgeY - 52, w: 48, h: 48, vx: 0, vy: 0 });
         buttons.push({ id, x: btnX, y: sy - 12, w: 64, h: 12, pressed: false });
-        gates.push({ id, x: sx + 590, y: sy - 160, w: 28, h: 160, openH: 0 });
+        gates.push({ id, x: sx + 590, y: 0, w: 28, h: sy, openH: 0 });
         hazards.push({ x: sx + 705, y: pitY - 16, w: 115, h: 16 });
         if (rng() > 0.4) {
             if (rng() > 0.65) wasps.push({ x: sx + 430, y: ledgeY - 62, baseX: sx + 430, baseY: ledgeY - 62, rangeX: 45, phase: rng() * 6, dead: false });
@@ -204,7 +204,7 @@ const LEVEL_MODULES = [
         winds.push({ x: sx + 330 + shiftX, y: sy - 182, w: 120, h: 182, vy: -560, vx: 0, active: true });
         boxes.push({ x: sx + 366 + shiftX, y: sy - 165, w: 48, h: 48, vx: 0, vy: 0 });
         buttons.push({ id, x: sx + 358 + shiftX, y: sy - 12, w: 64, h: 12, pressed: false });
-        gates.push({ id, x: sx + 660, y: sy - 160, w: 28, h: 160, openH: 0 });
+        gates.push({ id, x: sx + 660, y: 0, w: 28, h: sy, openH: 0 });
         if (rng() > 0.55) spawnGroundEnemy(shifted ? sx + 220 : sx + 550, sy, rng, true);
         return { width: 880, endY };
     },
@@ -226,7 +226,7 @@ const LEVEL_MODULES = [
         breakables.push({ x: sx + 420, y: topY, w: 110, h: 32, type: 'floor' }, { x: sx + 420, y: midY, w: 110, h: 28, type: 'floor' });
         spawnGroundEnemy(sx + 475, midY, rng, true);
         buttons.push({ id, x: sx + 443, y: botY - 12, w: 64, h: 12, pressed: false, sticky: true });
-        gates.push({ id, x: sx + 780, y: botY - 170, w: 28, h: 170, openH: 0 });
+        gates.push({ id, x: sx + 780, y: 0, w: 28, h: botY, openH: 0 });
         return { width: 1040, endY };
     },
     // 6 (Modul 7): Katapult-Bande (Winkel-Präzision über Stachelgrube)
@@ -260,8 +260,6 @@ const LEVEL_MODULES = [
             hazards.push({ x: sx + 160, y: pitY - 16, w: 600, h: 16 });
             if (swapWasp) {
                 wasps.push({ x: sx + 460, y: 345, baseX: sx + 460, baseY: 345, rangeX: 48, phase: rng() * 6, dead: false });
-            } else {
-                hazards.push({ x: sx + 390, y: 276, w: 140, h: 16 });
             }
             winds.push(
                 { x: sx + 180, y: 210, w: 140, h: 300, vy: -590, vx: 0, active: true },
@@ -318,7 +316,7 @@ const LEVEL_MODULES = [
             boxes.push({ x: sx + 345, y: highY - 48, w: 48, h: 48, vx: 0, vy: 0 });
             buttons.push({ id, x: sx + 195, y: highY - 12, w: 64, h: 12, pressed: false, sticky: true });
         }
-        gates.push({ id, x: sx + 710, y: sy - 170, w: 28, h: 170, openH: 0 });
+        gates.push({ id, x: sx + 710, y: 0, w: 28, h: sy, openH: 0 });
         return { width: 920, endY };
     },
     // 10 (Modul 11): Zombie-Kegeln (Steile Roll-Rampe mit Gegner-Mix)
@@ -383,7 +381,7 @@ const LEVEL_MODULES = [
             wasps.push({ x: sx + 640, y: botY - 88, baseX: sx + 640, baseY: botY - 88, rangeX: 38, phase: rng() * 6, dead: false });
         }
         buttons.push({ id, x: sx + 620, y: botY - 12, w: 64, h: 12, pressed: false, sticky: true });
-        gates.push({ id, x: sx + 770, y: botY - 170, w: 28, h: 170, openH: 0 });
+        gates.push({ id, x: sx + 770, y: 0, w: 28, h: botY, openH: 0 });
         return { width: 1020, endY };
     },
     // 14 (Mittel 2): Wespen-Luftraum & Seil-Abwurf mit Torwand
@@ -445,7 +443,7 @@ const LEVEL_MODULES = [
             { id: windId, x: sx + 875, y: sy - 12, w: 58, h: 12, pressed: false, sticky: true, toggleWind: true },
             { id, x: sx + 690, y: sy - 12, w: 64, h: 12, pressed: false }
         );
-        gates.push({ id, x: sx + 995, y: sy - 165, w: 28, h: 165, openH: 0 });
+        gates.push({ id, x: sx + 995, y: 0, w: 28, h: sy, openH: 0 });
         return { width: 1180, endY };
     },
     // 17 (Experte ab Level 6): Stachel-Katapult-Staffel
@@ -465,7 +463,7 @@ const LEVEL_MODULES = [
         spawnGroundEnemy(sx + 430, sy - 35, rng, true);
         breakables.push({ x: sx + 770, y: sy - 135, w: 110, h: 28, type: 'floor' });
         buttons.push({ id, x: sx + 793, y: sy - 7, w: 64, h: 12, pressed: false, sticky: true });
-        gates.push({ id, x: sx + 1080, y: endY - 165, w: 28, h: 165, openH: 0 });
+        gates.push({ id, x: sx + 1080, y: 0, w: 28, h: endY, openH: 0 });
         return { width: 1190, endY };
     },
     // 18 (Schwer 1 / Experte ab Level 6): Farb-Staffel im Wespen-Schwarm (Farbspiegelung)
@@ -506,7 +504,7 @@ const LEVEL_MODULES = [
         hazards.push({ x: sx + 830, y: pitY - 16, w: 320, h: 16 });
         ropeBridges.push({ ropeX: sx + 985, ropeY: Math.max(70, highY - 220), x: sx + 818, y: Math.max(175, highY - 115), w: 344, h: 18, targetY: pitY - 34, vy: 0, cut: false, settled: false });
         buttons.push({ id, x: sx + 455, y: pitY - 12, w: 64, h: 12, pressed: false, sticky: true });
-        gates.push({ id, x: sx + 1235, y: endY - 165, w: 28, h: 165, openH: 0 });
+        gates.push({ id, x: sx + 1235, y: 0, w: 28, h: endY, openH: 0 });
         return { width: 1340, endY };
     }
 ];
