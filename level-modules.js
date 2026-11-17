@@ -179,17 +179,34 @@ const LEVEL_MODULES = [
         spawnGroundEnemy(sx + 795, endY, rng, true);
         return { width: 910, endY };
     },
-    // 12 (Leicht 2): Farb-Trittsteine (Farb- & Höhen-Spiegelung)
+    // 12 (Leicht 2): Farb-Trittsteine (zufällig 2-5 Plattformen & zufällige Farbfolge)
     (sx, sy, id, rng) => {
-        const swapColors = rng() > 0.5;
+        const count = 2 + Math.floor(rng() * 4);
         const stepUp = rng() > 0.5;
         const endY = clampY(sy + (stepUp ? -55 : 40), 350, 500);
-        const midY1 = stepUp ? sy - 24 : sy + 14;
-        const midY2 = stepUp ? endY - 14 : endY - 22;
-        addPlat([sx, sy, 220, GAME_H - sy], [sx + 695, endY, 225, GAME_H - endY]);
-        addColorPlat([sx + 285, midY1, 130, swapColors ? 'red' : 'blue'], [sx + 490, midY2, 130, swapColors ? 'blue' : 'red']);
-        if (rng() > 0.6) addWasp(sx + 450, Math.min(midY1, midY2) - 82, 40, rng() * 6);
-        return { width: 920, endY };
+        const startPlatW = 220;
+        const endPlatW = 225;
+        const platW = 125;
+        const gap = 82;
+        let curX = sx + startPlatW + gap;
+        let minY = Math.min(sy, endY);
+        const plats = [];
+        for (let i = 0; i < count; i++) {
+            const t = (i + 1) / (count + 1);
+            const wave = Math.sin(t * Math.PI * (count > 2 ? 1.5 : 1)) * (stepUp ? -24 : 20);
+            const py = clampY(sy + (endY - sy) * t + wave, 290, 515);
+            const col = rng() > 0.5 ? 'red' : 'blue';
+            plats.push([curX, py, platW, col]);
+            minY = Math.min(minY, py);
+            curX += platW + gap;
+        }
+        addPlat([sx, sy, startPlatW, GAME_H - sy], [curX, endY, endPlatW, GAME_H - endY]);
+        addColorPlat(...plats);
+        if (rng() > 0.55) {
+            const waspX = sx + startPlatW + (curX - (sx + startPlatW)) * 0.5;
+            addWasp(waspX, minY - 84, 42, rng() * 6);
+        }
+        return { width: curX - sx + endPlatW, endY };
     },
     // 13 (Mittel 1): Glasboden-Stampfer auf Wächter (Gegner-Tausch)
     (sx, sy, id, rng) => {
