@@ -52,14 +52,97 @@ function render() {
         }
     }
 
-    ctx.lineWidth = 5; ctx.strokeStyle = '#0d0f12';
+    const worldDirtGrad = ctx.createLinearGradient(0, 250, 0, GAME_H);
+    worldDirtGrad.addColorStop(0, '#9e6c4a');
+    worldDirtGrad.addColorStop(0.35, '#7a5238');
+    worldDirtGrad.addColorStop(0.72, '#4e3322');
+    worldDirtGrad.addColorStop(1, '#24150c');
+
+    ctx.lineWidth = 5; ctx.strokeStyle = '#0d0f12'; ctx.lineJoin = 'round';
+    const groundSegs = [];
     for (const p of platforms) {
-        const dirtGrad = ctx.createLinearGradient(0, p.y, 0, p.y + p.h);
-        dirtGrad.addColorStop(0, '#7a5238'); dirtGrad.addColorStop(0.55, '#4e3322'); dirtGrad.addColorStop(1, '#26170e');
-        ctx.fillStyle = dirtGrad; ctx.fillRect(p.x, p.y, p.w, p.h); ctx.strokeRect(p.x, p.y, p.w, p.h);
-        if (p.y > 100) {
-            ctx.fillStyle = '#55b848'; ctx.fillRect(p.x - 2, p.y, p.w + 4, 20);
-            ctx.fillStyle = '#7ad667'; ctx.fillRect(p.x, p.y + 3, p.w, 6); ctx.strokeRect(p.x - 2, p.y, p.w + 4, 20);
+        if (p.y > 100 && p.y + p.h >= GAME_H - 5) {
+            groundSegs.push({ x1: p.x, y1: p.y, x2: p.x + p.w, y2: p.y });
+        } else {
+            ctx.fillStyle = worldDirtGrad;
+            ctx.fillRect(p.x, p.y, p.w, p.h);
+            ctx.strokeRect(p.x, p.y, p.w, p.h);
+            if (p.y > 100) {
+                ctx.fillStyle = '#55b848'; ctx.fillRect(p.x - 2, p.y, p.w + 4, 20);
+                ctx.fillStyle = '#7ad667'; ctx.fillRect(p.x, p.y + 3, p.w, 6);
+                ctx.strokeRect(p.x - 2, p.y, p.w + 4, 20);
+            }
+        }
+    }
+    for (const rp of ramps) groundSegs.push({ x1: rp.x1, y1: rp.y1, x2: rp.x2, y2: rp.y2 });
+    groundSegs.sort((a, b) => a.x1 - b.x1 || a.x2 - b.x2);
+
+    const groundIslands = [];
+    for (const seg of groundSegs) {
+        const cur = groundIslands[groundIslands.length - 1];
+        if (cur && Math.abs(seg.x1 - cur[cur.length - 1].x2) <= 2) cur.push(seg);
+        else groundIslands.push([seg]);
+    }
+
+    for (const island of groundIslands) {
+        ctx.fillStyle = worldDirtGrad;
+        ctx.strokeStyle = '#0d0f12';
+        ctx.lineWidth = 5;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(island[0].x1, GAME_H + 10);
+        ctx.lineTo(island[0].x1, island[0].y1);
+        for (const seg of island) {
+            ctx.lineTo(seg.x1, seg.y1);
+            ctx.lineTo(seg.x2, seg.y2);
+        }
+        ctx.lineTo(island[island.length - 1].x2, GAME_H + 10);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        const grassRuns = [];
+        for (let i = 0; i < island.length; i++) {
+            const seg = island[i];
+            const prev = i > 0 ? island[i - 1] : null;
+            if (prev && Math.abs(seg.y1 - prev.y2) <= 2) grassRuns[grassRuns.length - 1].push({ seg, idx: i });
+            else grassRuns.push([{ seg, idx: i }]);
+        }
+        for (const run of grassRuns) {
+            const firstIdx = run[0].idx, lastIdx = run[run.length - 1].idx;
+            const leftWall = firstIdx > 0 && island[firstIdx - 1].y2 < run[0].seg.y1 - 2;
+            const rightWall = lastIdx < island.length - 1 && island[lastIdx + 1].y1 < run[run.length - 1].seg.y2 - 2;
+            const gx0 = run[0].seg.x1 - (leftWall ? 0 : 2);
+            const gxN = run[run.length - 1].seg.x2 + (rightWall ? 0 : 2);
+            const pts = [{ x: gx0, y: run[0].seg.y1 }];
+            for (let k = 0; k < run.length - 1; k++) pts.push({ x: run[k].seg.x2, y: run[k].seg.y2 });
+            pts.push({ x: gxN, y: run[run.length - 1].seg.y2 });
+
+            ctx.fillStyle = '#55b848';
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k].x, pts[k].y);
+            for (let k = pts.length - 1; k >= 0; k--) ctx.lineTo(pts[k].x, pts[k].y + 20);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#7ad667';
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x + (leftWall ? 0 : 2), pts[0].y + 3);
+            for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k].x - (k === pts.length - 1 && !rightWall ? 2 : 0), pts[k].y + 3);
+            for (let k = pts.length - 1; k >= 0; k--) ctx.lineTo(pts[k].x - (k === pts.length - 1 && !rightWall ? 2 : 0), pts[k].y + 9);
+            ctx.lineTo(pts[0].x + (leftWall ? 0 : 2), pts[0].y + 9);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.strokeStyle = '#0d0f12';
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k].x, pts[k].y);
+            for (let k = pts.length - 1; k >= 0; k--) ctx.lineTo(pts[k].x, pts[k].y + 20);
+            ctx.closePath();
+            ctx.stroke();
         }
     }
 
@@ -123,11 +206,7 @@ function render() {
         ctx.restore();
     }
 
-    for (const rp of ramps) {
-        ctx.fillStyle = '#5c3a21'; ctx.beginPath(); ctx.moveTo(rp.x1, rp.y1); ctx.lineTo(rp.x2, rp.y2); ctx.lineTo(rp.x2, GAME_H); ctx.lineTo(rp.x1, GAME_H); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.strokeStyle = '#55b848'; ctx.lineWidth = 10; ctx.beginPath(); ctx.moveTo(rp.x1, rp.y1 + 5); ctx.lineTo(rp.x2, rp.y2 + 5); ctx.stroke();
-        ctx.strokeStyle = '#0d0f12'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(rp.x1, rp.y1); ctx.lineTo(rp.x2, rp.y2); ctx.stroke();
-    }
+
     for (const sw of seesaws) {
         ctx.fillStyle = '#4b5563'; ctx.beginPath(); ctx.moveTo(sw.cx - 18, sw.cy + 36); ctx.lineTo(sw.cx, sw.cy); ctx.lineTo(sw.cx + 18, sw.cy + 36); ctx.closePath(); ctx.fill(); ctx.stroke();
         ctx.save(); ctx.translate(sw.cx, sw.cy); ctx.rotate(sw.angle);

@@ -137,12 +137,19 @@ function update(dt) {
 
     for (const s of solids) {
         if (rectOverlap(player.x - player.r, player.y - player.r + 4, player.r * 2, player.r * 2 - 8, s.x, s.y, s.w, s.h)) {
+            const isRampSeam = ramps.some(rp =>
+                ((Math.abs((s.x + s.w) - rp.x1) <= 2 && Math.abs(s.y - rp.y1) <= 4) ||
+                 (Math.abs(s.x - rp.x2) <= 2 && Math.abs(s.y - rp.y2) <= 4)) &&
+                player.x + player.r >= rp.x1 - 6 && player.x - player.r <= rp.x2 + 6 &&
+                player.y + player.r <= rp.y1 + Math.max(0, Math.min(1, (player.x - rp.x1) / (rp.x2 - rp.x1))) * (rp.y2 - rp.y1) + 18
+            );
+            if (isRampSeam) continue;
             if (player.vx > 0) player.x = s.x - player.r; else if (player.vx < 0) player.x = s.x + s.w + player.r;
             player.vx = 0;
         }
     }
 
-    const prevVy = player.vy;
+    const prevVy = player.vy, wasGrounded = player.grounded;
     player.y += player.vy * dt;
     player.grounded = false;
 
@@ -169,10 +176,11 @@ function update(dt) {
     }
 
     for (const rp of ramps) {
-        if (player.x >= rp.x1 - 8 && player.x <= rp.x2 + 8) {
+        if (player.x >= rp.x1 - 10 && player.x <= rp.x2 + 10) {
             const t = Math.max(0, Math.min(1, (player.x - rp.x1) / (rp.x2 - rp.x1)));
             const ry = rp.y1 + t * (rp.y2 - rp.y1);
-            if (player.vy >= 0 && player.y + player.r >= ry - 6 && player.y - player.r < ry + 24) {
+            const snapUp = wasGrounded ? 16 : 8;
+            if (player.vy >= 0 && player.y + player.r >= ry - snapUp && player.y - player.r < ry + 28) {
                 player.y = ry - player.r; player.vy = 0; player.grounded = true;
                 if (player.curled) { player.vx = Math.min(540, player.vx + 560 * dt); player.catapultFlight = true; }
             }
