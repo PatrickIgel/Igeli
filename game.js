@@ -24,6 +24,7 @@ function update(dt) {
         for (const w of wasps) if (w.tx !== undefined) { w.x += (w.tx - w.x) * f; w.y += (w.ty - w.y) * f; }
         for (const bt of beetles) if (bt.tx !== undefined) { bt.x += (bt.tx - bt.x) * f; bt.y += (bt.ty - bt.y) * f; }
         for (const sw of seesaws) if (sw.tAngle !== undefined) sw.angle += (sw.tAngle - sw.angle) * f;
+        for (const ms of mossPlatforms) if (ms.ty !== undefined) ms.y += (ms.ty - ms.y) * f;
         for (const m of mushrooms) m.bounce = Math.max(0, m.bounce - dt * 4);
         return;
     }
@@ -78,7 +79,7 @@ function update(dt) {
 
     let inUpdraft = false;
     for (const w of winds) {
-        if (!w.active) continue;
+        if (!w.active || !isColorActive(w.color)) continue;
         if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, w.x, w.y, w.w, w.h)) {
             if (w.vy < 0 && jump && !player.curled) {
                 inUpdraft = true; player.catapultFlight = false;
@@ -87,6 +88,29 @@ function update(dt) {
             if (w.vx !== 0 && !(player.curled && player.grounded)) {
                 player.vx += (player.catapultFlight ? w.vx * 0.45 : w.vx * 3.8) * dt;
                 if (!player.catapultFlight && w.vx < 0 && player.vx > -140) player.vx = -140;
+                if (!player.catapultFlight && w.vx > 0 && player.vx < 140) player.vx = 140;
+            }
+        }
+    }
+
+    // Magnet-Blöcke: ziehen den eingerollten Igel an, solange die passende Farbe aktiv gehalten wird
+    let inMagnetPull = false;
+    for (const mg of magnetBlocks) {
+        if (!isColorActive(mg.color) || !player.curled) continue;
+        const dx = mg.x - player.x;
+        const dy = mg.y - player.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 1 && dist <= mg.range) {
+            inMagnetPull = true;
+            player.catapultFlight = false;
+            const pull = mg.force * (0.55 + 0.45 * (1 - dist / mg.range));
+            player.vx += (dx / dist) * pull * dt;
+            player.vy += (dy / dist) * pull * dt;
+            const maxSpd = 430;
+            const spd = Math.hypot(player.vx, player.vy);
+            if (spd > maxSpd) {
+                player.vx = (player.vx / spd) * maxSpd;
+                player.vy = (player.vy / spd) * maxSpd;
             }
         }
     }
@@ -112,7 +136,7 @@ function update(dt) {
         }
     }
 
-    const grav = inUpdraft ? 0 : ((player.curled && !player.grounded) ? 1350 : 920);
+    const grav = (inUpdraft || inMagnetPull) ? 0 : ((player.curled && !player.grounded) ? 1350 : 920);
     player.vy = Math.min(820, player.vy + grav * dt);
     player.x += player.vx * dt;
     if (player.x < 40) { player.x = 40; player.vx = 0; }
@@ -133,7 +157,10 @@ function update(dt) {
     const solids = [...platforms];
     for (const g of gates) if (g.openH < g.h - 8) solids.push({ x: g.x, y: g.y, w: g.w, h: g.h - g.openH });
     for (const cp of colorPlatforms) if (isColorPlatformActive(cp)) solids.push({ x: cp.x, y: cp.y, w: cp.w, h: cp.h });
+    for (const cl of colorLasers) if (!isColorActive(cl.color)) solids.push({ x: cl.x, y: cl.y, w: cl.w, h: cl.h });
     for (const rb of ropeBridges) solids.push({ x: rb.x, y: rb.y, w: rb.w, h: rb.h });
+    for (const mg of magnetBlocks) solids.push({ x: mg.x - mg.r, y: mg.y - mg.r, w: mg.r * 2, h: mg.r * 2 });
+    for (const ms of mossPlatforms) if (!ms.broken && !ms.falling) solids.push({ x: ms.x, y: ms.y, w: ms.w, h: ms.h });
 
     for (const s of solids) {
         if (rectOverlap(player.x - player.r, player.y - player.r + 4, player.r * 2, player.r * 2 - 8, s.x, s.y, s.w, s.h)) {
@@ -186,16 +213,66 @@ function update(dt) {
             }
         }
     }
+    // Zerbröselnde Moos-Plattformen (Timer & Kugel-Stampfer)
+    for (const ms of mossPlatforms) {
+        if (ms.broken) continue;
+        if (ms.falling) {
+            ms.vy = Math.min(760, ms.vy + 1150 * dt);
+            ms.y += ms.vy * dt;
+            if (ms.y > GAME_H + 60) ms.broken = true;
+            continue;
+        }
+        const onTop = player.grounded && Math.abs((player.y + player.r) - ms.y) <= 6 && player.x + player.r * 0.6 >= ms.x && player.x - player.r * 0.6 <= ms.x + ms.w;
+        if (onTop) {
+            if (player.curled) {
+                ms.falling = true;
+                ms.vy = 160;
+                player.grounded = false;
+                playTone(135, 'sawtooth', 0.2, 0.15, 60);
+                continue;
+            }
+            if (!ms.triggered) {
+                ms.triggered = true;
+                playTone(290, 'triangle', 0.1, 0.09, 210);
+            }
+        }
+        if (ms.triggered) {
+            ms.timer += dt;
+            if (ms.timer >= 1.35) {
+                ms.falling = true;
+                ms.vy = 80;
+                playTone(150, 'sawtooth', 0.18, 0.14, 65);
+            }
+        }
+    }
+
     for (const sw of seesaws) {
         let torque = 0;
         if (Math.abs(player.x - sw.cx) <= sw.halfW) {
             const sy = sw.cy + (player.x - sw.cx) * Math.tan(sw.angle);
             if (player.vy >= 0 && player.y + player.r >= sy - 10 && player.y - player.r < sy + 22) {
                 player.y = sy - player.r; player.vy = 0; player.grounded = true;
-                torque = ((player.x - sw.cx) / sw.halfW) * (player.curled ? 1.5 : 0.75);
+                torque += ((player.x - sw.cx) / sw.halfW) * (player.curled ? 1.5 : 0.75);
             }
         }
-        sw.angle += (Math.max(-0.28, Math.min(0.28, torque * 0.35 - 0.14)) - sw.angle) * Math.min(1, 5 * dt);
+        for (const b of boxes) {
+            const bcx = b.x + b.w / 2;
+            if (Math.abs(bcx - sw.cx) <= sw.halfW) {
+                const sy = sw.cy + (bcx - sw.cx) * Math.tan(sw.angle);
+                if (b.vy >= 0 && b.y + b.h >= sy - 10 && b.y < sy + 20) {
+                    b.y = sy - b.h;
+                    b.vy = 0;
+                    torque += ((bcx - sw.cx) / sw.halfW) * 1.35;
+                    if (sw.angle > 0.05) {
+                        b.x += Math.sin(sw.angle) * 260 * dt;
+                    }
+                }
+            }
+        }
+        const locked = sw.lockColor && isColorActive(sw.lockColor);
+        if (!locked) {
+            sw.angle += (Math.max(-0.28, Math.min(0.28, torque * 0.35 - 0.14)) - sw.angle) * Math.min(1, 5 * dt);
+        }
     }
     for (const m of mushrooms) {
         m.bounce = Math.max(0, m.bounce - dt * 4);
@@ -206,7 +283,20 @@ function update(dt) {
 
     for (const b of boxes) {
         let boxFloat = false;
-        for (const w of winds) if (w.active && w.vy < 0 && rectOverlap(b.x, b.y, b.w, b.h, w.x, w.y, w.w, w.h)) { b.vy = Math.max(-240, (b.vy || 0) - 1150 * dt); boxFloat = true; }
+        for (const w of winds) {
+            if (!w.active || !isColorActive(w.color)) continue;
+            if (rectOverlap(b.x, b.y, b.w, b.h, w.x, w.y, w.w, w.h)) {
+                if (w.vy < 0) { b.vy = Math.max(-240, (b.vy || 0) - 1150 * dt); boxFloat = true; }
+                if (w.vx !== 0) {
+                    b.x += w.vx * 0.42 * dt;
+                    for (const s of solids) {
+                        if (rectOverlap(b.x, b.y + 4, b.w, b.h - 8, s.x, s.y, s.w, s.h)) {
+                            b.x = w.vx > 0 ? s.x - b.w : s.x + s.w;
+                        }
+                    }
+                }
+            }
+        }
         if (!boxFloat) b.vy = Math.min(600, (b.vy || 0) + 900 * dt);
         b.y += b.vy * dt;
         for (const m of mushrooms) if (rectOverlap(b.x, b.y, b.w, b.h, m.x, m.y, m.w, m.h) && b.vy >= 0) { b.y = m.y - b.h; b.vy = m.vy * 0.92; m.bounce = 1; }
@@ -219,6 +309,7 @@ function update(dt) {
     for (const btn of buttons) {
         let active = btn.sticky && btn.pressed;
         if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2 + 4, btn.x, btn.y - 8, btn.w, btn.h + 8)) active = true;
+        for (const ms of mossPlatforms) if (!ms.broken && rectOverlap(ms.x, ms.y, ms.w, ms.h + 6, btn.x, btn.y - 8, btn.w, btn.h + 8)) active = true;
         for (const b of boxes) if (rectOverlap(b.x, b.y, b.w, b.h + 4, btn.x, btn.y - 8, btn.w, btn.h + 8)) active = true;
         if (active && !btn.pressed) playTone(520, 'sine', 0.15, 0.12, 740);
         btn.pressed = active;

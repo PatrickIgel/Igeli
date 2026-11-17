@@ -27,7 +27,7 @@ function playTone(freq, type, dur, vol = 0.1, slide = null) {
 const state = { levelIndex: 0, levelSeed: (Math.random() * 1e9) | 0, hearts: 5, camX: 0, won: false, gameOver: false, resetSeq: 0, redActHeld: false, blueActHeld: false };
 const player = { x: 140, y: 380, vx: 0, vy: 0, r: 24, grounded: false, curled: false, rot: 0, facing: 1, aimState: 0, aimAngle: 0.78, aimDir: 1, slingshotCharge: 0, catapultFlight: false, invuln: 0, wasJumpPressed: false };
 let platforms = [], boxes = [], buttons = [], gates = [], breakables = [], winds = [], hazards = [], zombies = [], mushrooms = [], ramps = [], seesaws = [], goalX = 2000;
-let colorPlatforms = [], ropeBridges = [], wasps = [], beetles = [];
+let colorPlatforms = [], ropeBridges = [], wasps = [], beetles = [], magnetBlocks = [], colorLasers = [], mossPlatforms = [];
 
 function hurtPlayer() {
     if (player.invuln > 0) return;
@@ -48,4 +48,9 @@ function rectOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
 
 function isColorPlatformActive(cp) {
     return cp.color === 'red' ? state.redActHeld : state.blueActHeld;
+}
+
+function isColorActive(color) {
+    if (!color) return true;
+    return color === 'red' ? state.redActHeld : state.blueActHeld;
 }

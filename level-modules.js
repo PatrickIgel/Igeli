@@ -237,7 +237,61 @@ const LEVEL_MODULES = [
         if (rng() > 0.45) spawnGroundEnemy(sx + 1095, endY, rng, true);
         return { width: 1200, endY };
     },
-    // 15 (Experte ab Level 6): Die Wind-Waage (Kippschalter, gespiegelte Windposition möglich)
+    // 15 (Standard 16 / Magnet-Blöcke Leicht): Magnet-Brücke über Stachelgrube (zufällige Farbe & Höhe)
+    (sx, sy, id, rng) => {
+        const pitY = 535;
+        const magCol = rng() > 0.5 ? 'red' : 'blue';
+        const endY = clampY(sy + (rng() > 0.5 ? -35 : 20), 350, 495);
+        const magY = Math.max(195, Math.min(sy, endY) - 135 - Math.floor(rng() * 25));
+        addPlat([sx, sy, 230, GAME_H - sy], [sx + 230, pitY, 440, GAME_H - pitY], [sx + 670, endY, 240, GAME_H - endY]);
+        addHaz(sx + 250, pitY - 16, 400);
+        addMagnet([sx + 450, magY, 26, 265, 1180, magCol]);
+        if (rng() > 0.55) spawnGroundEnemy(sx + 790, endY, rng, true);
+        return { width: 910, endY };
+    },
+    // 16 (Standard 17 / Farb-Ventilator Leicht-Mittel): Doppel-Ventilator-Aufstieg (beide Farben abwechselnd nötig)
+    (sx, sy, id, rng) => {
+        const pitY = 540;
+        const swapColors = rng() > 0.5;
+        const c1 = swapColors ? 'blue' : 'red';
+        const c2 = swapColors ? 'red' : 'blue';
+        const midY = clampY(sy - 55, 335, 435);
+        const endY = clampY(midY - 50, 290, 405);
+        addPlat([sx, sy, 210, GAME_H - sy], [sx + 210, pitY, 640, GAME_H - pitY], [sx + 475, midY, 130, 30], [sx + 850, endY, 220, GAME_H - endY]);
+        addHaz(sx + 230, pitY - 16, 600);
+        addWind(
+            [sx + 245, midY - 75, 145, pitY - midY + 55, 0, -600, undefined, c1],
+            [sx + 640, endY - 75, 145, pitY - endY + 55, 0, -610, undefined, c2]
+        );
+        if (rng() > 0.5) addWasp(sx + 540, midY - 82, 34, rng() * 6);
+        return { width: 1070, endY };
+    },
+    // 17 (Standard 18 / Farb-Schleuse): Laser-Ranken-Schleuse (hält Gegner zurück & öffnet per Farb-Aktiv)
+    (sx, sy, id, rng) => {
+        const c1 = rng() > 0.5 ? 'red' : 'blue';
+        const c2 = c1 === 'red' ? 'blue' : 'red';
+        const endY = clampY(sy + (rng() > 0.5 ? -35 : 20), 350, 495);
+        addPlat([sx, sy, 660, GAME_H - sy], [sx + 660, endY, 240, GAME_H - endY]);
+        addColorLaser([sx + 250, sy - 155, 22, 155, c1]);
+        spawnGroundEnemy(sx + 435, sy, rng, true);
+        addColorLaser([sx + 585, sy - 155, 22, 155, c2]);
+        if (rng() > 0.55) addWasp(sx + 770, endY - 82, 34, rng() * 6);
+        return { width: 900, endY };
+    },
+    // 18 (Standard 19 / Moos-Plattformen Leicht): Zerbröselnde Moos-Brücke über Stachelgrube
+    (sx, sy, id, rng) => {
+        const pitY = 535;
+        const endY = clampY(sy + (rng() > 0.5 ? -30 : 25), 355, 495);
+        const m1Y = clampY(sy - 12, 340, 490);
+        const m2Y = clampY((sy + endY) * 0.5 - 16, 335, 485);
+        const m3Y = clampY(endY - 12, 340, 490);
+        addPlat([sx, sy, 200, GAME_H - sy], [sx + 200, pitY, 560, GAME_H - pitY], [sx + 760, endY, 200, GAME_H - endY]);
+        addHaz(sx + 220, pitY - 16, 520);
+        addMoss([sx + 245, m1Y, 115], [sx + 422, m2Y, 115], [sx + 600, m3Y, 115]);
+        if (rng() > 0.5) spawnGroundEnemy(sx + 865, endY, rng, true);
+        return { width: 960, endY };
+    },
+    // 19 (Experte ab Level 6): Die Wind-Waage (Kippschalter, gespiegelte Windposition möglich)
     (sx, sy, id, rng) => {
         const mirrored = rng() > 0.5;
         const pitY = 535;
@@ -255,7 +309,7 @@ const LEVEL_MODULES = [
         if (rng() > 0.55) spawnGroundEnemy(sx + 835, endY, rng, true);
         return { width: 960, endY };
     },
-    // 16 (Experte ab Level 6): Kisten-Schleuse im Gegenwind
+    // 18 (Experte ab Level 6): Kisten-Schleuse im Gegenwind
     (sx, sy, id, rng) => {
         const pitY = 535, windId = id + 100;
         const endY = clampY(sy + (rng() > 0.5 ? -35 : 0), 350, 500);
@@ -280,7 +334,7 @@ const LEVEL_MODULES = [
         addGate(id, sx + 1080, endY);
         return { width: 1190, endY };
     },
-    // 18 (Schwer 1 / Experte ab Level 6): Farb-Staffel im Wespen-Schwarm (Farbspiegelung)
+    // 20 (Schwer 1 / Experte ab Level 6): Farb-Staffel im Wespen-Schwarm (Farbspiegelung)
     (sx, sy, id, rng) => {
         const swapColors = rng() > 0.5;
         const c1 = swapColors ? 'blue' : 'red';
@@ -292,7 +346,7 @@ const LEVEL_MODULES = [
         addWasp(sx + 650, endY - 82, 38, 2.2 + rng() * 2);
         return { width: 1110, endY };
     },
-    // 19 (Schwer 2 / Experte ab Level 6): Dreifach-Timing (Farb- & Gegner-Variante)
+    // 21 (Schwer 2 / Experte ab Level 6): Dreifach-Timing (Farb- & Gegner-Variante)
     (sx, sy, id, rng) => {
         const pitY = 540;
         const endY = clampY(sy + (rng() > 0.5 ? -20 : 25), 375, 500);
@@ -307,5 +361,95 @@ const LEVEL_MODULES = [
         addBtn(id, sx + 455, pitY - 12, true);
         addGate(id, sx + 1235, endY);
         return { width: 1340, endY };
+    },
+    // 22 (Experte ab Level 6 / Magnet-Blöcke Schwer): Doppel-Magnet-Staffel mit Wespe & Farb-Trittstein
+    (sx, sy, id, rng) => {
+        const pitY = 545;
+        const swapColors = rng() > 0.5;
+        const c1 = swapColors ? 'blue' : 'red';
+        const c2 = swapColors ? 'red' : 'blue';
+        const endY = clampY(sy + (rng() > 0.5 ? -40 : 15), 345, 485);
+        const m1Y = Math.max(185, sy - 145);
+        const m2Y = Math.max(180, endY - 150);
+        addPlat([sx, sy, 200, GAME_H - sy], [sx + 200, pitY, 860, GAME_H - pitY], [sx + 1060, endY, 220, GAME_H - endY]);
+        addHaz(sx + 220, pitY - 16, 820);
+        addMagnet(
+            [sx + 385, m1Y, 26, 255, 1240, c1],
+            [sx + 855, m2Y, 26, 255, 1240, c2]
+        );
+        addColorPlat([sx + 565, Math.min(sy, endY) - 10, 115, c2]);
+        addWasp(sx + 622, Math.min(m1Y, m2Y) + 55, 42, rng() * 6);
+        if (rng() > 0.45) spawnGroundEnemy(sx + 1170, endY, rng, true);
+        return { width: 1280, endY };
+    },
+    // 23 (Experte ab Level 6 / Farb-Ventilator Schwer): Kisten-Lift & Tor-Schleuse mit beiden Farb-Ventilatoren
+    (sx, sy, id, rng) => {
+        const pitY = 540;
+        const swapColors = rng() > 0.5;
+        const c1 = swapColors ? 'blue' : 'red';
+        const c2 = swapColors ? 'red' : 'blue';
+        const endY = clampY(sy + (rng() > 0.5 ? -30 : 20), 355, 495);
+        const upperY = Math.max(245, Math.min(sy, endY) - 145);
+        addPlat(
+            [sx, sy, 230, GAME_H - sy],
+            [sx + 230, pitY, 220, GAME_H - pitY],
+            [sx + 450, upperY, 210, 30],
+            [sx + 450, sy, 520, GAME_H - sy],
+            [sx + 970, endY, 180, GAME_H - endY]
+        );
+        addHaz(sx + 250, pitY - 16, 180);
+        addBox(sx + 125, sy - 48);
+        addWind(
+            [sx + 265, upperY - 70, 145, pitY - upperY + 55, 0, -610, undefined, c1],
+            [sx + 665, upperY - 50, 175, sy - upperY + 50, 440, 0, undefined, c2]
+        );
+        addBtn(id, sx + 535, upperY - 12, true);
+        addGate(id, sx + 915, sy);
+        if (rng() > 0.5) spawnGroundEnemy(sx + 760, sy, rng, true);
+        return { width: 1150, endY };
+    },
+    // 24 (Experte ab Level 6 / Kipp-Plattform mit Farb-Arretierung): Arretierbare Rampe für Kiste & Katapult
+    (sx, sy, id, rng) => {
+        const pitY = 540;
+        const lockCol = rng() > 0.5 ? 'red' : 'blue';
+        const highY = clampY(sy - 65, 325, 420);
+        const endY = clampY(highY - 25, 310, 405);
+        addPlat(
+            [sx, sy, 230, GAME_H - sy],
+            [sx + 230, pitY, 420, GAME_H - pitY],
+            [sx + 650, highY, 450, GAME_H - highY],
+            [sx + 1100, endY, 180, GAME_H - endY]
+        );
+        addHaz(sx + 250, pitY - 16, 380);
+        addSeesaw(sx + 440, sy - 18, 165, -0.24, lockCol);
+        addBox(sx + 125, sy - 48);
+        addBtn(id, sx + 810, highY - 12, true);
+        addGate(id, sx + 1045, highY);
+        if (rng() > 0.5) addWasp(sx + 440, highY - 95, 40, rng() * 6);
+        return { width: 1280, endY };
+    },
+    // 25 (Experte ab Level 6 / Moos-Plattformen Schwer): Moos-Stampfer & Etagen-Sprung über Stacheln
+    (sx, sy, id, rng) => {
+        const pitY = 540;
+        const endY = clampY(sy + (rng() > 0.5 ? -35 : 20), 350, 490);
+        const topY = Math.max(235, Math.min(sy, endY) - 165);
+        const midY = topY + 125;
+        addPlat(
+            [sx, sy, 140, GAME_H - sy],
+            [sx + 140, pitY, 320, GAME_H - pitY],
+            [sx + 275, topY, 145, 30],
+            [sx + 535, topY, 155, 30],
+            [sx + 460, midY, 330, GAME_H - midY],
+            [sx + 790, pitY, 220, GAME_H - pitY],
+            [sx + 1010, endY, 180, GAME_H - endY]
+        );
+        addHaz(sx + 155, pitY - 16, 290);
+        addHaz(sx + 805, pitY - 16, 190);
+        addWind([sx + 145, topY - 65, 120, sy - topY + 65, 0, -595]);
+        addMoss([sx + 420, topY, 115], [sx + 840, Math.min(midY, endY) - 14, 120]);
+        addBtn(id, sx + 485, midY - 12, true);
+        addGate(id, sx + 735, midY);
+        if (rng() > 0.45) spawnGroundEnemy(sx + 615, midY, rng, true);
+        return { width: 1190, endY };
     }
 ];

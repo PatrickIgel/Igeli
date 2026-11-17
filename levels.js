@@ -6,7 +6,7 @@ const getModuleCount = idx => idx < 2 ? 1 : idx < 5 ? 2 : idx - 2;
 const clampY = (y, min = 340, max = 505) => Math.max(min, Math.min(max, Math.round(y)));
 
 const addPlat = (...list) => list.forEach(([x, y, w, h]) => platforms.push({ x, y, w, h }));
-const addWind = (...list) => list.forEach(([x, y, w, h, vx, vy, id]) => winds.push(id !== undefined ? { id, x, y, w, h, vy, vx, active: true } : { x, y, w, h, vy, vx, active: true }));
+const addWind = (...list) => list.forEach(([x, y, w, h, vx, vy, id, color]) => winds.push({ ...(id !== undefined ? { id } : {}), ...(color ? { color } : {}), x, y, w, h, vy, vx, active: true }));
 const addHaz = (x, y, w) => hazards.push({ x, y, w, h: 16 });
 const addGate = (id, x, h) => gates.push({ id, x, y: 0, w: 28, h, openH: 0 });
 const addBtn = (id, x, y, sticky = false, toggleWind = false) => buttons.push({
@@ -18,6 +18,10 @@ const addBox = (x, y) => boxes.push({ x, y, w: 48, h: 48, vx: 0, vy: 0 });
 const addBreak = (x, y, w, h, type) => breakables.push({ x, y, w, h, type });
 const addWasp = (x, y, rangeX, phase) => wasps.push({ x, y, baseX: x, baseY: y, rangeX, phase, dead: false });
 const addColorPlat = (...list) => list.forEach(([x, y, w, color]) => colorPlatforms.push({ x, y, w, h: 20, color }));
+const addMagnet = (...list) => list.forEach(([x, y, r, range, force, color]) => magnetBlocks.push({ x, y, r, range, force, color }));
+const addColorLaser = (...list) => list.forEach(([x, y, w, h, color]) => colorLasers.push({ x, y, w, h, color }));
+const addMoss = (...list) => list.forEach(([x, y, w]) => mossPlatforms.push({ x, y, w, h: 20, origY: y, timer: 0, triggered: false, falling: false, broken: false, vy: 0 }));
+const addSeesaw = (cx, cy, halfW, angle = -0.22, lockColor = null) => seesaws.push({ cx, cy, halfW, angle, ...(lockColor ? { lockColor } : {}) });
 const addRope = (ropeX, ropeY, x, y, w, targetY) => ropeBridges.push({ ropeX, ropeY, x, y, w, h: 18, targetY, vy: 0, cut: false, settled: false });
 
 function spawnGroundEnemy(x, y, rng, allowBeetle = true) {
@@ -109,7 +113,7 @@ function drawFromShuffleBag(rng, poolSize, lastMod, expertOnly = false) {
 }
 
 function populateCoopExtras(idx) {
-    if (colorPlatforms.length || ropeBridges.length || wasps.length || beetles.length) return;
+    if (colorPlatforms.length || ropeBridges.length || wasps.length || beetles.length || magnetBlocks.length || colorLasers.length || mossPlatforms.length) return;
 
     let s = ((state.levelSeed || 1) + (idx + 1) * 7919) >>> 0;
     const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
@@ -165,12 +169,12 @@ function loadLevel(idx, newSeed = false) {
     const rng = createRng(state.levelSeed + idx * 7919);
     const geoRng = createRng(((state.levelSeed ^ 0x9e3779b9) >>> 0) + idx * 104729);
     platforms = []; boxes = []; buttons = []; gates = []; breakables = []; winds = []; hazards = []; zombies = []; mushrooms = []; ramps = []; seesaws = [];
-    colorPlatforms = []; ropeBridges = []; wasps = []; beetles = [];
+    colorPlatforms = []; ropeBridges = []; wasps = []; beetles = []; magnetBlocks = []; colorLasers = []; mossPlatforms = [];
     player.vx = 0; player.vy = 0; player.slingshotCharge = 0; player.aimState = 0; player.catapultFlight = false; player.invuln = 0;
 
     let { curX, curY } = START_PRESETS[Math.floor(geoRng() * START_PRESETS.length)](geoRng);
     let lastMod = -1;
-    const poolSize = idx >= 5 ? LEVEL_MODULES.length : 15;
+    const poolSize = idx >= 5 ? LEVEL_MODULES.length : 19;
     const count = getModuleCount(idx);
     const cacheKey = `${idx}:${state.levelSeed}`;
 

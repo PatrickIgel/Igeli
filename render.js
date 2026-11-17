@@ -39,8 +39,45 @@ function render() {
     ctx.save(); ctx.translate(-state.camX, 0);
     for (const wi of winds) {
         if (!wi.active) continue;
+        const fanActive = isColorActive(wi.color);
+        if (wi.color) {
+            const fanCol = wi.color === 'red' ? '#e5534b' : '#20b8f9';
+            ctx.save();
+            ctx.fillStyle = '#374151';
+            ctx.strokeStyle = '#0d0f12';
+            ctx.lineWidth = 4;
+            if (wi.vy < 0) {
+                const fx = wi.x + wi.w / 2, fy = wi.y + wi.h - 8;
+                ctx.fillRect(wi.x + 12, fy - 8, wi.w - 24, 16);
+                ctx.strokeRect(wi.x + 12, fy - 8, wi.w - 24, 16);
+                ctx.fillStyle = fanCol;
+                ctx.beginPath(); ctx.arc(fx, fy, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            } else {
+                const dir = wi.vx < 0 ? -1 : 1;
+                const fx = dir > 0 ? wi.x + 8 : wi.x + wi.w - 8, fy = wi.y + wi.h / 2;
+                ctx.fillRect(fx - 8, wi.y + 12, 16, wi.h - 24);
+                ctx.strokeRect(fx - 8, wi.y + 12, 16, wi.h - 24);
+                ctx.fillStyle = fanCol;
+                ctx.beginPath(); ctx.arc(fx, fy, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            }
+            if (!fanActive) {
+                ctx.strokeStyle = fanCol;
+                ctx.lineWidth = 2.5;
+                ctx.setLineDash([7, 6]);
+                ctx.strokeRect(wi.x, wi.y, wi.w, wi.h);
+                ctx.setLineDash([]);
+            }
+            ctx.restore();
+        }
+        if (!fanActive) continue;
         const wg = ctx.createLinearGradient(wi.x, wi.y, wi.x, wi.y + wi.h);
-        wg.addColorStop(0, 'rgba(255,255,255,0.12)'); wg.addColorStop(0.5, 'rgba(224,242,254,0.38)'); wg.addColorStop(1, 'rgba(255,255,255,0.15)');
+        if (wi.color === 'red') {
+            wg.addColorStop(0, 'rgba(229,83,75,0.10)'); wg.addColorStop(0.5, 'rgba(254,202,202,0.36)'); wg.addColorStop(1, 'rgba(229,83,75,0.14)');
+        } else if (wi.color === 'blue') {
+            wg.addColorStop(0, 'rgba(32,184,249,0.10)'); wg.addColorStop(0.5, 'rgba(186,230,253,0.40)'); wg.addColorStop(1, 'rgba(32,184,249,0.14)');
+        } else {
+            wg.addColorStop(0, 'rgba(255,255,255,0.12)'); wg.addColorStop(0.5, 'rgba(224,242,254,0.38)'); wg.addColorStop(1, 'rgba(255,255,255,0.15)');
+        }
         ctx.fillStyle = wg; ctx.fillRect(wi.x, wi.y, wi.w, wi.h);
         const t = performance.now() * 0.14;
         const leafCols = ['#f59e0b', '#e5534b', '#eab308', '#d97706'];
@@ -190,6 +227,112 @@ function render() {
         }
     }
 
+    // Magnet-Blöcke zeichnen
+    for (const mg of magnetBlocks) {
+        const act = isColorActive(mg.color);
+        const baseCol = mg.color === 'red' ? '#e5534b' : '#20b8f9';
+        const ringAlpha = act ? 0.34 : 0.14;
+        ctx.save();
+        ctx.strokeStyle = mg.color === 'red' ? `rgba(229, 83, 75, ${ringAlpha})` : `rgba(32, 184, 249, ${ringAlpha})`;
+        ctx.lineWidth = act ? 3 : 2;
+        ctx.setLineDash([8, 8]);
+        ctx.beginPath();
+        ctx.arc(mg.x, mg.y, mg.range, 0, Math.PI * 2);
+        ctx.stroke();
+        if (act) {
+            const pulseR = mg.r + ((performance.now() * 0.08) % (mg.range - mg.r));
+            const invR = mg.range - (pulseR - mg.r);
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.arc(mg.x, mg.y, invR, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#374151';
+        ctx.strokeStyle = '#0d0f12';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(mg.x, mg.y, mg.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = act ? baseCol : 'rgba(148, 163, 184, 0.45)';
+        ctx.beginPath();
+        ctx.arc(mg.x, mg.y, mg.r * 0.56, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = act ? '#ffffff' : baseCol;
+        ctx.beginPath();
+        ctx.arc(mg.x, mg.y, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Farb-Schleusen / Laser-Ranken zeichnen
+    for (const cl of colorLasers) {
+        const open = isColorActive(cl.color);
+        const baseCol = cl.color === 'red' ? '#e5534b' : '#20b8f9';
+        const glowCol = cl.color === 'red' ? 'rgba(229, 83, 75, 0.35)' : 'rgba(32, 184, 249, 0.35)';
+        ctx.save();
+        ctx.fillStyle = '#374151';
+        ctx.strokeStyle = '#0d0f12';
+        ctx.lineWidth = 4;
+        ctx.fillRect(cl.x - 4, cl.y, cl.w + 8, 12);
+        ctx.strokeRect(cl.x - 4, cl.y, cl.w + 8, 12);
+        ctx.fillRect(cl.x - 4, cl.y + cl.h - 12, cl.w + 8, 12);
+        ctx.strokeRect(cl.x - 4, cl.y + cl.h - 12, cl.w + 8, 12);
+
+        if (!open) {
+            ctx.fillStyle = glowCol;
+            ctx.fillRect(cl.x - 4, cl.y + 12, cl.w + 8, cl.h - 24);
+            ctx.fillStyle = baseCol;
+            ctx.fillRect(cl.x + 4, cl.y + 12, cl.w - 8, cl.h - 24);
+            const waveOff = Math.sin(performance.now() * 0.015) * 3;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(cl.x + cl.w / 2, cl.y + 14);
+            for (let y = cl.y + 24; y < cl.y + cl.h - 14; y += 16) {
+                ctx.lineTo(cl.x + cl.w / 2 + ((y / 16) % 2 === 0 ? waveOff : -waveOff), y);
+            }
+            ctx.stroke();
+        } else {
+            ctx.strokeStyle = baseCol;
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([6, 8]);
+            ctx.strokeRect(cl.x + 4, cl.y + 12, cl.w - 8, cl.h - 24);
+            ctx.setLineDash([]);
+        }
+        ctx.restore();
+    }
+
+    // Zerbröselnde Moos-Plattformen zeichnen
+    for (const ms of mossPlatforms) {
+        if (ms.broken) continue;
+        const shakeX = (ms.triggered && !ms.falling) ? Math.sin(performance.now() * 0.06) * (2 + ms.timer * 2.5) : 0;
+        ctx.save();
+        ctx.translate(shakeX, 0);
+        ctx.fillStyle = '#6b4423';
+        ctx.strokeStyle = '#0d0f12';
+        ctx.lineWidth = 4;
+        ctx.fillRect(ms.x, ms.y, ms.w, ms.h);
+        ctx.strokeRect(ms.x, ms.y, ms.w, ms.h);
+        ctx.fillStyle = ms.triggered ? '#a3e635' : '#4d7c0f';
+        ctx.fillRect(ms.x - 2, ms.y, ms.w + 4, 9);
+        ctx.strokeRect(ms.x - 2, ms.y, ms.w + 4, 9);
+        if (ms.triggered) {
+            ctx.beginPath();
+            ctx.moveTo(ms.x + ms.w * 0.35, ms.y + 4);
+            ctx.lineTo(ms.x + ms.w * 0.42, ms.y + ms.h);
+            ctx.moveTo(ms.x + ms.w * 0.68, ms.y + 2);
+            ctx.lineTo(ms.x + ms.w * 0.62, ms.y + ms.h);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
     // Farb-Plattformen zeichnen
     for (const cp of colorPlatforms) {
         const act = isColorPlatformActive(cp);
@@ -252,9 +395,17 @@ function render() {
 
 
     for (const sw of seesaws) {
+        const locked = sw.lockColor && isColorActive(sw.lockColor);
+        const lockCol = sw.lockColor === 'red' ? '#e5534b' : '#20b8f9';
         ctx.fillStyle = '#4b5563'; ctx.beginPath(); ctx.moveTo(sw.cx - 18, sw.cy + 36); ctx.lineTo(sw.cx, sw.cy); ctx.lineTo(sw.cx + 18, sw.cy + 36); ctx.closePath(); ctx.fill(); ctx.stroke();
         ctx.save(); ctx.translate(sw.cx, sw.cy); ctx.rotate(sw.angle);
-        ctx.fillStyle = '#d97706'; ctx.fillRect(-sw.halfW, -8, sw.halfW * 2, 16); ctx.strokeRect(-sw.halfW, -8, sw.halfW * 2, 16); ctx.restore();
+        ctx.fillStyle = locked ? lockCol : '#d97706';
+        ctx.fillRect(-sw.halfW, -8, sw.halfW * 2, 16); ctx.strokeRect(-sw.halfW, -8, sw.halfW * 2, 16);
+        if (sw.lockColor) {
+            ctx.fillStyle = locked ? '#ffffff' : lockCol;
+            ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        }
+        ctx.restore();
     }
     for (const m of mushrooms) {
         const sq = m.bounce * 8;

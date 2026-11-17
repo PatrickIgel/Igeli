@@ -69,6 +69,7 @@ function sendGameState() {
             winds: winds.map(w => w.active),
             breakables,
             seesaws: seesaws.map(s => s.angle),
+            mossPlatforms: mossPlatforms.map(ms => ({ y: ms.y, triggered: ms.triggered, falling: ms.falling, broken: ms.broken, timer: ms.timer })),
             mushrooms: mushrooms.map(m => m.bounce),
             ropeBridges: ropeBridges.map(rb => ({ y: rb.y, cut: rb.cut, settled: rb.settled })),
             wasps: wasps.map(w => ({ x: w.x, y: w.y, dead: w.dead })),
@@ -174,6 +175,17 @@ function applyClientState(d) {
             seesaws[i].tAngle = d.seesaws[i];
         }
     }
+    if (d.mossPlatforms && d.mossPlatforms.length === mossPlatforms.length) {
+        for (let i = 0; i < mossPlatforms.length; i++) {
+            const m = d.mossPlatforms[i];
+            if (levelChanged || mossPlatforms[i].ty === undefined) mossPlatforms[i].y = m.y;
+            mossPlatforms[i].ty = m.y;
+            mossPlatforms[i].triggered = m.triggered;
+            mossPlatforms[i].falling = m.falling;
+            mossPlatforms[i].broken = m.broken;
+            mossPlatforms[i].timer = m.timer;
+        }
+    }
     if (d.mushrooms && d.mushrooms.length === mushrooms.length) {
         for (let i = 0; i < mushrooms.length; i++) {
             if (d.mushrooms[i] > mushrooms[i].bounce) mushrooms[i].bounce = d.mushrooms[i];
@@ -191,14 +203,18 @@ function applyClientState(d) {
     if (d.wasps && d.wasps.length === wasps.length) {
         for (let i = 0; i < wasps.length; i++) {
             const w = d.wasps[i];
-            if (levelChanged || wasps[i].tx === undefined) { wasps[i].x = w.x; wasps[i].y = w.y; }
+            if (levelChanged || wasps[i].tx === undefined || Math.hypot(w.x - wasps[i].x, w.y - wasps[i].y) > 250) {
+                wasps[i].x = w.x; wasps[i].y = w.y;
+            }
             wasps[i].tx = w.x; wasps[i].ty = w.y; wasps[i].dead = w.dead;
         }
     }
     if (d.beetles && d.beetles.length === beetles.length) {
         for (let i = 0; i < beetles.length; i++) {
             const bt = d.beetles[i];
-            if (levelChanged || beetles[i].tx === undefined) { beetles[i].x = bt.x; beetles[i].y = bt.y; }
+            if (levelChanged || beetles[i].tx === undefined || Math.hypot(bt.x - beetles[i].x, bt.y - beetles[i].y) > 250) {
+                beetles[i].x = bt.x; beetles[i].y = bt.y;
+            }
             beetles[i].tx = bt.x; beetles[i].ty = bt.y; beetles[i].dir = bt.dir; beetles[i].dead = bt.dead;
         }
     }
