@@ -238,7 +238,7 @@ function update(dt) {
         }
         if (ms.triggered) {
             ms.timer += dt;
-            if (ms.timer >= 1.75) {
+            if (ms.timer >= 1) {
                 ms.falling = true;
                 ms.vy = 80;
                 playTone(150, 'sawtooth', 0.18, 0.14, 65);
