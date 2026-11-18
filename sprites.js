@@ -16,35 +16,73 @@ function drawHedgehog() {
     ctx.strokeStyle = '#0d0f12'; ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     if (player.curled) {
         ctx.rotate(player.rot);
-        // Äußere Stachel-Ebene (Dunkelbraun #3d2f25)
+        // 18 organische Plüsch-Zackenbüschel für den flauschigen Look aus dem Designvorschlag
+        const tufts = [
+            [21.2, 30.5, 16.2, 23.2, 12.6, 17.6],
+            [20.0, 27.8, 15.2, 21.0, 12.0, 16.0],
+            [21.0, 31.0, 16.0, 23.6, 12.5, 17.8],
+            [19.8, 27.5, 15.0, 20.8, 11.8, 15.8],
+            [21.2, 30.2, 16.2, 23.0, 12.6, 17.5],
+            [20.0, 28.2, 15.2, 21.4, 12.0, 16.2],
+            [21.0, 30.8, 16.0, 23.4, 12.5, 17.7],
+            [19.8, 27.4, 15.0, 20.6, 11.8, 15.6],
+            [21.0, 30.0, 16.0, 22.8, 12.5, 17.4],
+            [20.0, 28.0, 15.2, 21.2, 12.0, 16.1],
+            [21.2, 30.6, 16.2, 23.3, 12.6, 17.6],
+            [19.8, 27.6, 15.0, 20.8, 11.8, 15.8],
+            [21.0, 30.2, 16.0, 23.0, 12.5, 17.5],
+            [20.0, 28.2, 15.2, 21.4, 12.0, 16.2],
+            [21.2, 30.9, 16.2, 23.5, 12.6, 17.8],
+            [19.8, 27.5, 15.0, 20.7, 11.8, 15.7],
+            [21.0, 29.8, 16.0, 22.6, 12.5, 17.2],
+            [20.0, 28.0, 15.2, 21.2, 12.0, 16.0]
+        ];
+        const n = tufts.length;
+
+        // 1. Äußeres Plüsch-Stachelkleid (Dunkelbraun #3d2f25)
         ctx.fillStyle = '#3d2f25';
         ctx.beginPath();
-        for (let i = 0; i < 16; i++) {
-            const ang = (i / 16) * Math.PI * 2;
-            const x1 = Math.cos(ang - 0.19) * 18, y1 = Math.sin(ang - 0.19) * 18;
-            if (i === 0) ctx.moveTo(x1, y1); else ctx.lineTo(x1, y1);
-            ctx.lineTo(Math.cos(ang) * 30, Math.sin(ang) * 30);
-            ctx.lineTo(Math.cos(ang + 0.19) * 18, Math.sin(ang + 0.19) * 18);
+        for (let i = 0; i < n; i++) {
+            const a0 = (i / n) * Math.PI * 2;
+            const am = ((i + 0.48) / n) * Math.PI * 2;
+            const x0 = Math.cos(a0) * tufts[i][0], y0 = Math.sin(a0) * tufts[i][0];
+            if (i === 0) ctx.moveTo(x0, y0); else ctx.lineTo(x0, y0);
+            ctx.lineTo(Math.cos(am) * tufts[i][1], Math.sin(am) * tufts[i][1]);
         }
         ctx.closePath(); ctx.fill(); ctx.stroke();
 
-        // Mittlere Mottled-Pelz-Ebene (#806f60)
+        // 2. Mittlere Mottled-Pelz-Ebene (#806f60)
         ctx.save();
-        ctx.lineWidth = 2.5; ctx.strokeStyle = '#2b2019'; ctx.fillStyle = '#806f60';
+        ctx.lineWidth = 2.4; ctx.strokeStyle = '#2b2019'; ctx.fillStyle = '#806f60';
         ctx.beginPath();
-        for (let i = 0; i < 16; i++) {
-            const ang = ((i + 0.5) / 16) * Math.PI * 2;
-            const x1 = Math.cos(ang - 0.19) * 15, y1 = Math.sin(ang - 0.19) * 15;
-            if (i === 0) ctx.moveTo(x1, y1); else ctx.lineTo(x1, y1);
-            ctx.lineTo(Math.cos(ang) * 24.5, Math.sin(ang) * 24.5);
-            ctx.lineTo(Math.cos(ang + 0.19) * 15, Math.sin(ang + 0.19) * 15);
+        for (let i = 0; i < n; i++) {
+            const a0 = (i / n) * Math.PI * 2 + 0.04;
+            const am = ((i + 0.54) / n) * Math.PI * 2;
+            const x0 = Math.cos(a0) * tufts[i][2], y0 = Math.sin(a0) * tufts[i][2];
+            if (i === 0) ctx.moveTo(x0, y0); else ctx.lineTo(x0, y0);
+            ctx.lineTo(Math.cos(am) * tufts[i][3], Math.sin(am) * tufts[i][3]);
+        }
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+
+        // 3. Innere Plüsch-Zacken (#b8a99a)
+        ctx.lineWidth = 1.8; ctx.strokeStyle = '#3d2f25'; ctx.fillStyle = '#b8a99a';
+        ctx.beginPath();
+        for (let i = 0; i < n; i++) {
+            const a0 = (i / n) * Math.PI * 2 - 0.03;
+            const am = ((i + 0.44) / n) * Math.PI * 2;
+            const x0 = Math.cos(a0) * tufts[i][4], y0 = Math.sin(a0) * tufts[i][4];
+            if (i === 0) ctx.moveTo(x0, y0); else ctx.lineTo(x0, y0);
+            ctx.lineTo(Math.cos(am) * tufts[i][5], Math.sin(am) * tufts[i][5]);
         }
         ctx.closePath(); ctx.fill(); ctx.stroke();
         ctx.restore();
 
-        // Innere Plüsch-Basis & cremefarbener Bauch (#b8a99a & #eedec5)
-        ctx.beginPath(); ctx.arc(0, 0, 17, 0, Math.PI * 2); ctx.fillStyle = '#b8a99a'; ctx.fill(); ctx.stroke();
+        // 4. Cremefarbener Plüsch-Bauch im Zentrum (#eedec5) mit zarter Bauchfalte & Polaritäts-Ring
         ctx.beginPath(); ctx.arc(0, 0, 11.5, 0, Math.PI * 2); ctx.fillStyle = '#eedec5'; ctx.fill();
+        ctx.save();
+        ctx.strokeStyle = '#cbb292'; ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.ellipse(0, 1.5, 6.2, 5.2, 0, 0.35, 2.79); ctx.stroke();
+        ctx.restore();
         ctx.strokeStyle = '#e5534b'; ctx.beginPath(); ctx.arc(0, 0, 11.5, 0, Math.PI); ctx.stroke();
         ctx.strokeStyle = '#20b8f9'; ctx.beginPath(); ctx.arc(0, 0, 11.5, Math.PI, Math.PI * 2); ctx.stroke();
     } else {
