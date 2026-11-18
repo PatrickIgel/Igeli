@@ -11,38 +11,64 @@ let jumpPressCount = 0, lastRemoteJumpCount = 0;
 let isConnecting = false;
 let lastSentBlue = { blueJump: false, blueLeft: false, blueAct: false };
 
-const PEER_CONFIG = {
-    pingInterval: 5000,
-    config: {
-        iceCandidatePoolSize: 6,
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun.relay.metered.ca:80' },
-            {
-                urls: 'turn:standard.relay.metered.ca:80',
-                username: 'e8dd65b92f6dde4319548341',
-                credential: '934183410101'
-            },
-            {
-                urls: 'turn:standard.relay.metered.ca:80?transport=tcp',
-                username: 'e8dd65b92f6dde4319548341',
-                credential: '934183410101'
-            },
-            {
-                urls: 'turn:standard.relay.metered.ca:443',
-                username: 'e8dd65b92f6dde4319548341',
-                credential: '934183410101'
-            },
-            {
-                urls: 'turns:standard.relay.metered.ca:443?transport=tcp',
-                username: 'e8dd65b92f6dde4319548341',
-                credential: '934183410101'
-            }
-        ]
+const FALLBACK_ICE_SERVERS = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun.relay.metered.ca:80' },
+    {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+    },
+    {
+        urls: 'turn:openrelay.metered.ca:80?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+    },
+    {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+    },
+    {
+        urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
     }
-};
+];
+
+let cachedIceServers = null;
+
+async function getPeerConfig() {
+    if (!cachedIceServers) {
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 4000);
+            const res = await fetch('https://openrelay.metered.ca/api/v1/turn/credentials?apiKey=openrelayproject', {
+                signal: controller.signal
+            });
+            clearTimeout(timer);
+            if (res.ok) {
+                const servers = await res.json();
+                if (Array.isArray(servers) && servers.length > 0) {
+                    cachedIceServers = [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        ...servers
+                    ];
+                }
+            }
+        } catch (e) {}
+    }
+    return {
+        pingInterval: 5000,
+        config: {
+            iceCandidatePoolSize: 6,
+            iceServers: cachedIceServers || FALLBACK_ICE_SERVERS
+        }
+    };
+}
 
 function sendBlueInputs(force = false) {
     if (netMode !== 'client' || !conn || !conn.open) return;
@@ -281,7 +307,7 @@ document.getElementById('btnLocal').addEventListener('click', () => {
     loadLevel(0, true);
 });
 
-function startHostSession() {
+async function startHostSession() {
     cleanupPeer();
     if (typeof Peer === 'undefined') {
         hostStatus.textContent = 'PeerJS konnte nicht geladen werden.';
@@ -289,8 +315,11 @@ function startHostSession() {
     }
     roomCode = String(Math.floor(1000 + Math.random() * 9000));
     roomCodeDisplay.textContent = roomCode;
-    hostStatus.textContent = 'Verbinde mit Server...';
-    const currentPeer = new Peer('igel-' + roomCode, PEER_CONFIG);
+    hostStatus.textContent = 'Hole Relay-Server & verbinde...';
+    const peerConfig = await getPeerConfig();
+    if (hostPanel.classList.contains('hidden')) return;
+
+    const currentPeer = new Peer('igel-' + roomCode, peerConfig);
     peer = currentPeer;
 
     currentPeer.on('open', () => {
@@ -405,7 +434,7 @@ document.getElementById('btnCancelJoin').addEventListener('click', () => {
     mainMenu.classList.remove('hidden');
 });
 
-function connectToHost() {
+async function connectToHost() {
     if (isConnecting) return;
     const code = codeInput.value.replace(/\D/g, '').slice(0, 4);
     if (code.length !== 4) {
@@ -420,15 +449,20 @@ function connectToHost() {
     isConnecting = true;
     roomCode = code;
     let peerFound = false;
-    joinStatus.textContent = 'Suche Raum ' + code + '...';
-    const currentPeer = new Peer(PEER_CONFIG);
+    let clientStarted = false;
+    joinStatus.textContent = 'Hole Relay-Server & suche Raum ' + code + '...';
+
+    const peerConfig = await getPeerConfig();
+    if (!isConnecting) return;
+
+    const currentPeer = new Peer(peerConfig);
     peer = currentPeer;
 
     connectTimeout = setTimeout(() => {
-        if (peer === currentPeer && netMode !== 'client') {
+        if (peer === currentPeer && netMode !== 'client' && !clientStarted) {
             cleanupPeer();
             joinStatus.textContent = peerFound
-                ? 'Direktverbindung blockiert (Netzwerk/Mobilfunk). Bitte erneut versuchen.'
+                ? 'Verbindung fehlgeschlagen (NAT/Mobilfunk-Relay blockiert). Bitte erneut versuchen.'
                 : 'Zeitüberschreitung – Server antwortet nicht oder Raum ' + code + ' ist nicht aktiv.';
         }
     }, 25000);
@@ -436,70 +470,71 @@ function connectToHost() {
     currentPeer.on('open', () => {
         if (peer !== currentPeer) return;
         peerFound = true;
-        joinStatus.textContent = 'Raum ' + code + ' gefunden – baue Verbindung auf...';
+        joinStatus.textContent = 'Raum ' + code + ' gefunden – baue WebRTC/Relay-Verbindung auf...';
 
-        const openDataChannel = () => {
-            if (peer !== currentPeer || netMode === 'client') return;
-            if (conn) { try { conn.close(); } catch (e) {} }
+        const c = currentPeer.connect('igel-' + code, { reliable: true });
+        conn = c;
 
-            const c = currentPeer.connect('igel-' + code, { reliable: true });
-            conn = c;
-            let clientStarted = false;
+        const activateClient = () => {
+            if (clientStarted || peer !== currentPeer) return;
+            clientStarted = true;
+            isConnecting = false;
+            if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
+            netMode = 'client';
+            netTarget = null;
+            hasReceivedInitialState = false;
+            lastStateSeq = -1;
+            lastResetSeq = -1;
+            inputSeq = 0;
+            jumpPressCount = 0;
+            lastSentBlue = { blueJump: false, blueLeft: false, blueAct: false };
+            menuOverlay.classList.add('hidden');
+            sendBlueInputs(true);
+            if (clientInputTimer) clearInterval(clientInputTimer);
+            clientInputTimer = setInterval(() => sendBlueInputs(true), 40);
+        };
 
-            const activateClient = () => {
-                if (clientStarted || peer !== currentPeer) return;
-                clientStarted = true;
-                isConnecting = false;
-                if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
-                netMode = 'client';
-                netTarget = null;
-                hasReceivedInitialState = false;
-                lastStateSeq = -1;
-                lastResetSeq = -1;
-                inputSeq = 0;
-                jumpPressCount = 0;
-                lastSentBlue = { blueJump: false, blueLeft: false, blueAct: false };
-                menuOverlay.classList.add('hidden');
-                sendBlueInputs(true);
-                if (clientInputTimer) clearInterval(clientInputTimer);
-                clientInputTimer = setInterval(() => sendBlueInputs(true), 40);
-            };
-
-            c.on('data', d => {
-                if (!d) return;
-                if (!clientStarted) activateClient();
-                if (d.type === 'state') applyClientState(d);
+        // ICE-Status der nativen WebRTC-Verbindung überwachen (ohne laufenden Handshake abzubrechen)
+        setTimeout(() => {
+            if (peer !== currentPeer || !c.peerConnection) return;
+            c.peerConnection.addEventListener('iceconnectionstatechange', () => {
+                if (peer !== currentPeer || clientStarted) return;
+                const iceState = c.peerConnection.iceConnectionState;
+                if (iceState === 'checking') {
+                    joinStatus.textContent = 'Prüfe Direkt- & Relay-Verbindung (ICE)...';
+                } else if (iceState === 'failed') {
+                    cleanupPeer();
+                    joinStatus.textContent = 'WebRTC/TURN-Verbindung fehlgeschlagen. Bitte erneut versuchen.';
+                }
             });
-            c.on('close', () => {
-                isConnecting = false;
-                if (clientInputTimer) { clearInterval(clientInputTimer); clientInputTimer = null; }
+        }, 0);
+
+        c.on('data', d => {
+            if (!d) return;
+            if (!clientStarted) activateClient();
+            if (d.type === 'state') applyClientState(d);
+        });
+        c.on('close', () => {
+            if (peer !== currentPeer) return;
+            isConnecting = false;
+            if (clientInputTimer) { clearInterval(clientInputTimer); clientInputTimer = null; }
+            if (netMode === 'client') {
                 netMode = 'local';
                 joinStatus.textContent = 'Verbindung getrennt.';
                 menuOverlay.classList.remove('hidden');
                 joinPanel.classList.remove('hidden');
                 mainMenu.classList.add('hidden');
-            });
-            c.on('error', err => {
-                if (peer !== currentPeer) return;
-                isConnecting = false;
-                joinStatus.textContent = 'Verbindungsfehler: ' + (err.type || err.message || 'Unbekannt');
-            });
-
-            if (c.open) {
-                activateClient();
-            } else {
-                c.on('open', activateClient);
-                // Falls der erste WebRTC-Handshake auf dem Handy hängt, nach 8s automatisch neu anstoßen
-                setTimeout(() => {
-                    if (peer === currentPeer && !clientStarted && netMode !== 'client') {
-                        joinStatus.textContent = 'Verbindung dauert länger – wechsle auf Relay-Route...';
-                        openDataChannel();
-                    }
-                }, 8000);
             }
-        };
+        });
+        c.on('error', err => {
+            if (peer !== currentPeer) return;
+            isConnecting = false;
+            if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
+            joinStatus.textContent = 'Verbindungsfehler: ' + (err.type || err.message || 'Unbekannt');
+        });
 
-        openDataChannel();
+        if (c.open) activateClient();
+        else c.on('open', activateClient);
     });
     currentPeer.on('error', err => {
         if (peer !== currentPeer) return;
