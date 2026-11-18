@@ -1,4 +1,4 @@
-// Standard-Module (0-18, verfügbar ab Stufe 1)
+// Standard-Module (verfügbar ab Stufe 1)
 const LEVEL_MODULES = [
     // 0: Aufwind & Glasboden + Gegenwind-Schalter (inkl. gespiegelter Weg-Variante)
     (sx, sy, id, rng) => {
@@ -68,19 +68,6 @@ const LEVEL_MODULES = [
         if (rng() > 0.5) addWasp(sx + 810, endY - 75, 35, rng() * 6);
         else spawnGroundEnemy(sx + 830, endY, rng, true);
         return { width: 920, endY };
-    },
-    // 4 (Modul 5): Die Kisten-Brücke (Kugel-Anker + Kiste im Aufwind, inkl. Positions-Variante)
-    (sx, sy, id, rng) => {
-        const shifted = rng() > 0.5;
-        const endY = clampY(sy + (rng() > 0.5 ? -40 : 0), 350, 500);
-        const shiftX = shifted ? 110 : 0;
-        addPlat([sx, sy, 740, GAME_H - sy], [sx + 310 + shiftX, sy - 210, 160, 28], [sx + 740, endY, 140, GAME_H - endY]);
-        addWind([sx + 330 + shiftX, sy - 182, 120, 182, 0, -560]);
-        addBox(sx + 366 + shiftX, sy - 165);
-        addBtn(id, sx + 358 + shiftX, sy - 12);
-        addGate(id, sx + 660, sy);
-        if (rng() > 0.55) spawnGroundEnemy(shifted ? sx + 220 : sx + 550, sy, rng, true);
-        return { width: 880, endY };
     },
     // 5 (Modul 6): Doppel-Glas-Etage (Timing-Stampfer mit Gegner-Tausch)
     (sx, sy, id, rng) => {
@@ -292,3 +279,5 @@ const LEVEL_MODULES = [
         return { width: 960, endY };
     }
 ];
+
+const STANDARD_MODULE_COUNT = LEVEL_MODULES.length;

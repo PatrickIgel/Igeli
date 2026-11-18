@@ -94,9 +94,9 @@ const GOAL_PRESETS = [
 const shuffleBagState = { used: new Set(), cachedKey: '', cachedModules: [] };
 
 function drawFromShuffleBag(rng, poolSize, lastMod, expertOnly = false) {
-    const refillThreshold = Math.ceil(poolSize * 0.8);
+    const refillThreshold = Math.ceil(poolSize * 0.9);
     if (shuffleBagState.used.size >= refillThreshold) shuffleBagState.used.clear();
-    const startIdx = expertOnly ? 15 : 0;
+    const startIdx = expertOnly ? STANDARD_MODULE_COUNT : 0;
     let candidates = [];
     for (let i = startIdx; i < poolSize; i++) if (!shuffleBagState.used.has(i) && i !== lastMod) candidates.push(i);
     if (candidates.length === 0 && expertOnly) {
@@ -113,18 +113,23 @@ function drawFromShuffleBag(rng, poolSize, lastMod, expertOnly = false) {
 }
 
 function populateCoopExtras(idx) {
-    if (colorPlatforms.length || ropeBridges.length || wasps.length || beetles.length || magnetBlocks.length || colorLasers.length || mossPlatforms.length) return;
-
     let s = ((state.levelSeed || 1) + (idx + 1) * 7919) >>> 0;
     const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
 
-    // 1. Farb-Plattformen & Wespen in breiten Abgründen (auf angepasste Sprungweite abgestimmt)
+    // 1. Farb-Plattformen & Wespen in leeren breiten Abgründen (auf angepasste Sprungweite abgestimmt)
     for (let i = 0; i < platforms.length - 1; i++) {
         const p1 = platforms[i], p2 = platforms[i + 1];
         if (p1.y < 120 || p2.y < 120) continue; // Deckenwände ignorieren
         const gapStart = p1.x + p1.w, gapEnd = p2.x;
         const gap = gapEnd - gapStart;
         if (gap >= 145 && gap <= 340) {
+            const hasGapElement =
+                colorPlatforms.some(cp => cp.x + cp.w > gapStart && cp.x < gapEnd) ||
+                mossPlatforms.some(mp => mp.x + mp.w > gapStart && mp.x < gapEnd) ||
+                ropeBridges.some(rb => rb.x + rb.w > gapStart && rb.x < gapEnd) ||
+                magnetBlocks.some(mg => mg.x > gapStart - 40 && mg.x < gapEnd + 40) ||
+                winds.some(wi => wi.x + wi.w > gapStart && wi.x < gapEnd);
+            if (hasGapElement) continue;
             const midX = (gapStart + gapEnd) / 2;
             const midY = Math.min(p1.y, p2.y) - 10;
             if (gap >= 245) {
@@ -174,7 +179,7 @@ function loadLevel(idx, newSeed = false) {
 
     let { curX, curY } = START_PRESETS[Math.floor(geoRng() * START_PRESETS.length)](geoRng);
     let lastMod = -1;
-    const poolSize = idx >= 5 ? LEVEL_MODULES.length : 19;
+    const poolSize = idx >= 5 ? LEVEL_MODULES.length : STANDARD_MODULE_COUNT;
     const count = getModuleCount(idx);
     const cacheKey = `${idx}:${state.levelSeed}`;
 
