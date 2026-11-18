@@ -238,7 +238,7 @@ function update(dt) {
         }
         if (ms.triggered) {
             ms.timer += dt;
-            if (ms.timer >= 1) {
+            if (ms.timer >= 1.75) {
                 ms.falling = true;
                 ms.vy = 80;
                 playTone(150, 'sawtooth', 0.18, 0.14, 65);
@@ -324,22 +324,14 @@ function update(dt) {
     }
     for (const z of zombies) {
         if (z.dead) continue;
-        const canStep = (dir) => {
-            const testX = z.x + dir * 6;
-            const lookX = testX + dir * 14;
-            const floorOk = solids.some(s => lookX >= s.x && lookX <= s.x + s.w && Math.abs(s.y - z.y) < 10) ||
-                breakables.some(br => br.type === 'floor' && lookX >= br.x && lookX <= br.x + br.w && Math.abs(br.y - z.y) < 10);
-            const wallHit = solids.some(s => rectOverlap(testX - 14, z.y - 46, 28, 40, s.x, s.y, s.w, s.h)) ||
-                breakables.some(br => br.type === 'wall' && rectOverlap(testX - 14, z.y - 46, 28, 40, br.x, br.y, br.w, br.h));
-            return floorOk && !wallHit && testX > 40;
-        };
+        if (z.turnCooldown > 0) z.turnCooldown = Math.max(0, z.turnCooldown - dt);
         const chase = Math.abs(player.y - (z.y - 24)) < 75 && Math.abs(player.x - z.x) < 340;
-        if (chase && Math.abs(player.x - z.x) > 8) {
-            const desiredDir = player.x < z.x ? -1 : 1;
-            if (canStep(desiredDir)) z.dir = desiredDir;
+        if (chase && z.turnCooldown <= 0 && Math.abs(player.x - z.x) > 12) {
+            z.dir = player.x < z.x ? -1 : 1;
         }
-        const nextX = z.x + z.dir * (chase ? 85 : 52) * dt;
-        const lookX = nextX + z.dir * 14;
+        const speed = (chase && z.turnCooldown <= 0) ? 85 : 52;
+        const nextX = z.x + z.dir * speed * dt;
+        const lookX = nextX + z.dir * 16;
         const hasFloor = solids.some(s => lookX >= s.x && lookX <= s.x + s.w && Math.abs(s.y - z.y) < 10) ||
             breakables.some(br => br.type === 'floor' && lookX >= br.x && lookX <= br.x + br.w && Math.abs(br.y - z.y) < 10);
         const hitWall = solids.some(s => rectOverlap(nextX - 14, z.y - 46, 28, 40, s.x, s.y, s.w, s.h)) ||
@@ -348,7 +340,7 @@ function update(dt) {
             z.x = nextX;
         } else {
             z.dir *= -1;
-            if (canStep(z.dir)) z.x += z.dir * 2;
+            z.turnCooldown = 0.75;
         }
         if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, z.x - 18, z.y - 48, 36, 48)) {
             if (player.curled) { z.dead = true; if (player.vy > 0) player.vy = -300; playTone(190, 'square', 0.22, 0.16, 65); }

@@ -151,7 +151,7 @@ function populateCoopExtras(idx) {
     // 2. Marienkäfer mit Schild unter Glasböden & auf breiten Plattformen
     for (const br of breakables) {
         if (br.type === 'floor' && br.w >= 70) {
-            const below = platforms.find(p => p.y > 120 && br.x + br.w / 2 >= p.x + 20 && br.x + br.w / 2 <= p.x + p.w - 20 && p.y > br.y + 40 && p.y - br.y < 240);
+            const below = platforms.find(p => p.y > 120 && br.x + br.w / 2 >= p.x + 28 && br.x + br.w / 2 <= p.x + p.w - 28 && p.y - br.y >= 76 && p.y - br.y < 240);
             if (below) {
                 beetles.push({ x: br.x + br.w / 2, y: below.y, dir: -1, dead: false });
             }
@@ -214,4 +214,59 @@ function loadLevel(idx, newSeed = false) {
     state.camX = 0;
 
     populateCoopExtras(idx);
+    validateGroundEnemies();
+}
+
+function validateGroundEnemies() {
+    const floorSurfaces = [
+        ...platforms.map(p => ({ x1: p.x, x2: p.x + p.w, y: p.y })),
+        ...breakables.filter(br => br.type === 'floor').map(br => ({ x1: br.x, x2: br.x + br.w, y: br.y }))
+    ];
+    const solidBlocks = [
+        ...platforms,
+        ...gates.map(g => ({ x: g.x, y: g.y, w: g.w, h: g.h })),
+        ...colorLasers.map(cl => ({ x: cl.x, y: cl.y, w: cl.w, h: cl.h })),
+        ...breakables.filter(br => br.type === 'wall')
+    ];
+
+    const hasEnoughSpace = (enemy, halfW, height) => {
+        const y = enemy.y;
+        const floor = floorSurfaces.find(f => enemy.x >= f.x1 && enemy.x <= f.x2 && Math.abs(f.y - y) <= 8);
+        if (!floor) return false;
+
+        // Check vertical clearance above enemy (must not spawn stuck inside/under a low platform or floor)
+        const blockedAbove = solidBlocks.some(s =>
+            s.y < y - 6 &&
+            s.x < enemy.x + halfW && s.x + s.w > enemy.x - halfW &&
+            s.y + s.h > y - height
+        ) || breakables.some(br =>
+            br.type === 'floor' &&
+            br.y < y - 6 &&
+            br.x < enemy.x + halfW && br.x + br.w > enemy.x - halfW &&
+            br.y + br.h > y - height
+        );
+        if (blockedAbove) return false;
+
+        // Measure unobstructed walkable patrol span around enemy.x
+        let minX = floor.x1 + halfW + 4;
+        let maxX = floor.x2 - halfW - 4;
+        for (const s of solidBlocks) {
+            if (s.y < y - 6 && s.y + s.h > y - height + 4) {
+                if (s.x + s.w <= enemy.x && s.x + s.w + halfW + 4 > minX) minX = s.x + s.w + halfW + 4;
+                if (s.x >= enemy.x && s.x - halfW - 4 < maxX) maxX = s.x - halfW - 4;
+            }
+        }
+        for (const h of hazards) {
+            if (Math.abs(h.y - y) <= 20) {
+                if (h.x + h.w <= enemy.x && h.x + h.w + halfW + 4 > minX) minX = h.x + h.w + halfW + 4;
+                if (h.x >= enemy.x && h.x - halfW - 4 < maxX) maxX = h.x - halfW - 4;
+            }
+        }
+        if (maxX - minX < 64) return false;
+        enemy.x = Math.max(minX, Math.min(maxX, enemy.x));
+        return true;
+    };
+
+    zombies = zombies.filter(z => hasEnoughSpace(z, 18, 56));
+    beetles = beetles.filter(bt => hasEnoughSpace(bt, 24, 48));
 }
