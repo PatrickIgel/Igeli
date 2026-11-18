@@ -1,35 +1,63 @@
 // Hintergrund (Himmel, Parallax-Wolken, Bäume, Hügel)
-function renderBackground() {
+function renderBackground(viewBounds) {
+    const minX = (viewBounds ? viewBounds.minX : 0) - 20;
+    const maxX = (viewBounds ? viewBounds.maxX : GAME_W) + 20;
+    const minY = (viewBounds ? viewBounds.minY : 0) - 20;
+    const maxY = (viewBounds ? viewBounds.maxY : GAME_H) + 20;
+    const spanW = maxX - minX;
+    const groundBottom = Math.max(GAME_H, maxY) + 10;
+
+    if (minY < 0) {
+        ctx.fillStyle = '#72b6f6';
+        ctx.fillRect(minX, minY, spanW, -minY + 2);
+    }
     const sky = ctx.createLinearGradient(0, 0, 0, GAME_H);
     sky.addColorStop(0, '#72b6f6'); sky.addColorStop(0.65, '#cde8f6'); sky.addColorStop(1, '#fde4be');
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, GAME_W, GAME_H);
+    ctx.fillStyle = sky; ctx.fillRect(minX, 0, spanW, GAME_H);
+    if (maxY > GAME_H) {
+        ctx.fillStyle = '#24150c';
+        ctx.fillRect(minX, GAME_H - 2, spanW, maxY - GAME_H + 4);
+    }
 
     ctx.lineWidth = 4; ctx.strokeStyle = '#0d0f12';
-    for (let i = 0; i < 6; i++) {
-        const cx = ((i * 290 - state.camX * 0.1 + 90) % 1740 + 1740) % 1740 - 180, cy = 75 + (i % 3) * 48;
+    const cloudStep = 290;
+    const firstCloud = Math.floor((minX - 120 + state.camX * 0.1 - 90) / cloudStep);
+    const lastCloud = Math.ceil((maxX + 120 + state.camX * 0.1 - 90) / cloudStep);
+    for (let i = firstCloud; i <= lastCloud; i++) {
+        const cx = i * cloudStep + 90 - state.camX * 0.1;
+        const cy = 75 + (((i % 3) + 3) % 3) * 48;
         ctx.fillStyle = '#ffffff'; ctx.beginPath();
         ctx.arc(cx, cy, 24, Math.PI * 0.5, Math.PI * 1.5); ctx.arc(cx + 26, cy - 14, 30, Math.PI, Math.PI * 1.85);
         ctx.arc(cx + 58, cy - 6, 26, Math.PI * 1.15, Math.PI * 1.95); ctx.arc(cx + 76, cy + 4, 20, Math.PI * 1.5, Math.PI * 0.5);
         ctx.closePath(); ctx.fill(); ctx.stroke();
     }
+
     const treeCols = ['#d95338', '#e67e22', '#c83e2b'];
-    for (let i = 0; i < 8; i++) {
-        const tx = ((i * 240 - state.camX * 0.22) % 1920 + 1920) % 1920 - 160;
-        const hillY = 445 + Math.sin((tx + state.camX * 0.15) * 0.004) * 35, crownY = hillY - 115 - (i % 2) * 18;
-        ctx.fillStyle = '#5c3a21'; ctx.fillRect(tx - 14, crownY + 20, 28, GAME_H - crownY); ctx.strokeRect(tx - 14, crownY + 20, 28, GAME_H - crownY);
-        ctx.fillStyle = treeCols[i % 3]; ctx.beginPath();
+    const treeStep = 240;
+    const firstTree = Math.floor((minX - 100 + state.camX * 0.22) / treeStep);
+    const lastTree = Math.ceil((maxX + 100 + state.camX * 0.22) / treeStep);
+    for (let i = firstTree; i <= lastTree; i++) {
+        const tx = i * treeStep - state.camX * 0.22;
+        const mod3 = ((i % 3) + 3) % 3;
+        const mod2 = ((i % 2) + 2) % 2;
+        const hillY = 445 + Math.sin((tx + state.camX * 0.15) * 0.004) * 35, crownY = hillY - 115 - mod2 * 18;
+        ctx.fillStyle = '#5c3a21'; ctx.fillRect(tx - 14, crownY + 20, 28, groundBottom - crownY); ctx.strokeRect(tx - 14, crownY + 20, 28, groundBottom - crownY);
+        ctx.fillStyle = treeCols[mod3]; ctx.beginPath();
         ctx.arc(tx - 32, crownY + 12, 34, Math.PI * 0.45, Math.PI * 1.65); ctx.arc(tx, crownY - 18, 42, Math.PI * 0.95, Math.PI * 2.05);
         ctx.arc(tx + 32, crownY + 12, 34, Math.PI * 1.35, Math.PI * 0.55); ctx.closePath(); ctx.fill(); ctx.stroke();
     }
+
+    const hillStartX = Math.floor((minX - 80) / 40) * 40;
+    const hillEndX = Math.ceil((maxX + 80) / 40) * 40;
     const hillGrad = ctx.createLinearGradient(0, 410, 0, GAME_H);
     hillGrad.addColorStop(0, '#d49a6a'); hillGrad.addColorStop(1, '#8c5832');
-    ctx.fillStyle = hillGrad; ctx.beginPath(); ctx.moveTo(0, GAME_H);
-    for (let x = 0; x <= GAME_W + 80; x += 40) ctx.lineTo(x, 445 + Math.sin((x + state.camX * 0.15) * 0.004) * 35);
-    ctx.lineTo(GAME_W, GAME_H); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = hillGrad; ctx.beginPath(); ctx.moveTo(hillStartX, groundBottom);
+    for (let x = hillStartX; x <= hillEndX; x += 40) ctx.lineTo(x, 445 + Math.sin((x + state.camX * 0.15) * 0.004) * 35);
+    ctx.lineTo(hillEndX, groundBottom); ctx.closePath(); ctx.fill(); ctx.stroke();
 }
 
 // Weltgeometrie (Windzonen, Erd-Inseln, Grasdecken, Rampen)
-function renderTerrain() {
+function renderTerrain(viewBounds) {
 
     for (const wi of winds) {
         if (!wi.active) continue;
@@ -152,11 +180,23 @@ function renderTerrain() {
     for (const rp of ramps) groundSegs.push({ x1: rp.x1, y1: rp.y1, x2: rp.x2, y2: rp.y2 });
     groundSegs.sort((a, b) => a.x1 - b.x1 || a.x2 - b.x2);
 
+    const dirtBottom = Math.max(GAME_H, viewBounds ? viewBounds.maxY : GAME_H) + 10;
+    const visWorldLeft = state.camX + (viewBounds ? viewBounds.minX : 0) - 100;
+    const visWorldRight = state.camX + (viewBounds ? viewBounds.maxX : GAME_W) + 100;
+
     const groundIslands = [];
     for (const seg of groundSegs) {
         const cur = groundIslands[groundIslands.length - 1];
         if (cur && Math.abs(seg.x1 - cur[cur.length - 1].x2) <= 2) cur.push(seg);
         else groundIslands.push([seg]);
+    }
+
+    if (groundIslands.length > 0) {
+        const firstSeg = groundIslands[0][0];
+        if (visWorldLeft < firstSeg.x1) firstSeg.x1 = visWorldLeft;
+        const lastIsland = groundIslands[groundIslands.length - 1];
+        const lastSeg = lastIsland[lastIsland.length - 1];
+        if (visWorldRight > lastSeg.x2) lastSeg.x2 = visWorldRight;
     }
 
     for (const island of groundIslands) {
@@ -165,13 +205,13 @@ function renderTerrain() {
         ctx.lineWidth = 5;
         ctx.lineJoin = 'round';
         ctx.beginPath();
-        ctx.moveTo(island[0].x1, GAME_H + 10);
+        ctx.moveTo(island[0].x1, dirtBottom);
         ctx.lineTo(island[0].x1, island[0].y1);
         for (const seg of island) {
             ctx.lineTo(seg.x1, seg.y1);
             ctx.lineTo(seg.x2, seg.y2);
         }
-        ctx.lineTo(island[island.length - 1].x2, GAME_H + 10);
+        ctx.lineTo(island[island.length - 1].x2, dirtBottom);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();

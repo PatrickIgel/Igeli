@@ -138,8 +138,11 @@ function update(dt) {
 
     const grav = (inUpdraft || inMagnetPull) ? 0 : ((player.curled && !player.grounded) ? 1350 : 920);
     player.vy = Math.min(820, player.vy + grav * dt);
+    const minBound = state.minX || 40;
+    const maxBound = state.maxX || (goalX + 120);
     player.x += player.vx * dt;
-    if (player.x < 40) { player.x = 40; player.vx = 0; }
+    if (player.x < minBound) { player.x = minBound; if (player.vx < 0) player.vx = 0; }
+    if (player.x > maxBound) { player.x = maxBound; if (player.vx > 0) player.vx = 0; }
 
     for (const b of boxes) {
         if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, b.x, b.y, b.w, b.h) && player.y + player.r * 0.5 > b.y + 6) {
@@ -336,7 +339,7 @@ function update(dt) {
             breakables.some(br => br.type === 'floor' && lookX >= br.x && lookX <= br.x + br.w && Math.abs(br.y - z.y) < 10);
         const hitWall = solids.some(s => rectOverlap(nextX - 14, z.y - 46, 28, 40, s.x, s.y, s.w, s.h)) ||
             breakables.some(br => br.type === 'wall' && rectOverlap(nextX - 14, z.y - 46, 28, 40, br.x, br.y, br.w, br.h));
-        if (hasFloor && !hitWall && nextX > 40) {
+        if (hasFloor && !hitWall && nextX > minBound && nextX < maxBound) {
             z.x = nextX;
         } else {
             z.dir *= -1;
@@ -373,7 +376,7 @@ function update(dt) {
         const hasFloor = solids.some(s => lookX >= s.x && lookX <= s.x + s.w && Math.abs(s.y - bt.y) < 10) ||
             breakables.some(br => br.type === 'floor' && lookX >= br.x && lookX <= br.x + br.w && Math.abs(br.y - bt.y) < 10);
         const hitWall = solids.some(s => rectOverlap(nextX - 18, bt.y - 36, 36, 32, s.x, s.y, s.w, s.h));
-        if (hasFloor && !hitWall && nextX > 40) bt.x = nextX; else bt.dir *= -1;
+        if (hasFloor && !hitWall && nextX > minBound && nextX < maxBound) bt.x = nextX; else bt.dir *= -1;
 
         if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, bt.x - 24, bt.y - 40, 48, 40)) {
             const fromAbove = prevVy >= 0 && (player.y + player.r - prevVy * dt) <= bt.y - 24;
@@ -390,6 +393,14 @@ function update(dt) {
                 hurtPlayer();
             }
         }
+    }
+
+    // Unsichtbare Wände auch nach Kollisions- und Gegner-Rückstößen durchsetzen
+    if (player.x < minBound) { player.x = minBound; if (player.vx < 0) player.vx = 0; }
+    if (player.x > maxBound) { player.x = maxBound; if (player.vx > 0) player.vx = 0; }
+    for (const b of boxes) {
+        if (b.x < minBound - player.r) b.x = minBound - player.r;
+        if (b.x + b.w > maxBound + player.r) b.x = maxBound + player.r - b.w;
     }
 
     if (player.x >= goalX) {

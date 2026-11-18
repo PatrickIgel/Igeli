@@ -215,6 +215,22 @@ function loadLevel(idx, newSeed = false) {
 
     populateCoopExtras(idx);
     validateGroundEnemies();
+
+    // Flachen Boden vor dem Start und nach dem Endpunkt nahtlos fortführen
+    const groundExtW = 3000;
+    const startGround = platforms.find(p => p.x <= 0 && p.x + p.w > 0 && p.y > 100 && p.y + p.h >= GAME_H - 5);
+    if (startGround) {
+        startGround.w += -startGround.x + groundExtW;
+        startGround.x = -groundExtW;
+    }
+    const endGround = [...platforms].reverse().find(p => p.y > 100 && p.y + p.h >= GAME_H - 5);
+    if (endGround) {
+        endGround.w += groundExtW;
+    }
+
+    // Unsichtbare Begrenzungswände am Start und nach dem Zielpunkt
+    state.minX = 40;
+    state.maxX = goalX + 120;
 }
 
 function validateGroundEnemies() {

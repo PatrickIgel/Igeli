@@ -2,17 +2,30 @@ function render() {
     const rect = canvas.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = rect.width || window.innerWidth, h = rect.height || window.innerHeight;
     if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) { canvas.width = Math.floor(w * dpr); canvas.height = Math.floor(h * dpr); }
-    ctx.save(); ctx.scale(dpr, dpr); ctx.fillStyle = '#1e2229'; ctx.fillRect(0, 0, w, h);
+    ctx.save(); ctx.scale(dpr, dpr); ctx.fillStyle = '#72b6f6'; ctx.fillRect(0, 0, w, h);
 
     const portrait = h > w;
-    view.scale = portrait ? Math.min(w / GAME_H, h / GAME_W) : Math.min(w / GAME_W, h / GAME_H);
+    const dispW = portrait ? h : w;
+    const dispH = portrait ? w : h;
+    view.scale = Math.min(dispW / GAME_W, dispH / GAME_H);
     view.rotation = portrait ? -Math.PI / 2 : 0; view.offsetX = w / 2; view.offsetY = h / 2;
     ctx.translate(view.offsetX, view.offsetY); ctx.rotate(view.rotation); ctx.scale(view.scale, view.scale); ctx.translate(-GAME_W / 2, -GAME_H / 2);
 
-    renderBackground();
+    const viewW = dispW / view.scale;
+    const viewH = dispH / view.scale;
+    const padX = Math.max(0, (viewW - GAME_W) / 2);
+    const padY = Math.max(0, (viewH - GAME_H) / 2);
+    const viewBounds = {
+        minX: -padX,
+        maxX: GAME_W + padX,
+        minY: -padY,
+        maxY: GAME_H + padY
+    };
+
+    renderBackground(viewBounds);
 
     ctx.save(); ctx.translate(-state.camX, 0);
-    renderTerrain();
+    renderTerrain(viewBounds);
     renderEntities();
     drawHedgehog();
     ctx.restore();
