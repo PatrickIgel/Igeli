@@ -1,7 +1,7 @@
 // Netzwerk-Status & PeerJS-Konfiguration
 let netMode = 'local'; // 'local' | 'host' | 'client'
 let peer = null, conn = null;
-let hostSendTimer = null, clientInputTimer = null, connectTimeout = null;
+let hostSendTimer = null, clientInputTimer = null, connectTimeout = null, pingTimer = null;
 let roomCode = '';
 let netTarget = null;
 let hasReceivedInitialState = false;
@@ -12,11 +12,34 @@ let isConnecting = false;
 let lastSentBlue = { blueJump: false, blueLeft: false, blueAct: false };
 
 const PEER_CONFIG = {
+    pingInterval: 5000,
     config: {
+        iceCandidatePoolSize: 6,
         iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' }
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun.relay.metered.ca:80' },
+            {
+                urls: 'turn:standard.relay.metered.ca:80',
+                username: 'e8dd65b92f6dde4319548341',
+                credential: '934183410101'
+            },
+            {
+                urls: 'turn:standard.relay.metered.ca:80?transport=tcp',
+                username: 'e8dd65b92f6dde4319548341',
+                credential: '934183410101'
+            },
+            {
+                urls: 'turn:standard.relay.metered.ca:443',
+                username: 'e8dd65b92f6dde4319548341',
+                credential: '934183410101'
+            },
+            {
+                urls: 'turns:standard.relay.metered.ca:443?transport=tcp',
+                username: 'e8dd65b92f6dde4319548341',
+                credential: '934183410101'
+            }
         ]
     }
 };
@@ -237,11 +260,19 @@ function cleanupPeer() {
     if (hostSendTimer) { clearInterval(hostSendTimer); hostSendTimer = null; }
     if (clientInputTimer) { clearInterval(clientInputTimer); clientInputTimer = null; }
     if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
+    if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
     if (conn) { try { conn.close(); } catch (e) {} conn = null; }
     if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
     activePointers.clear();
     syncPointers();
 }
+
+// Auf Smartphones pausiert der Browser WebSockets im Hintergrund (z. B. beim Code-Verschicken)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && peer && !peer.destroyed && peer.disconnected) {
+        try { peer.reconnect(); } catch (e) {}
+    }
+});
 
 document.getElementById('btnLocal').addEventListener('click', () => {
     cleanupPeer();
@@ -259,21 +290,35 @@ function startHostSession() {
     roomCode = String(Math.floor(1000 + Math.random() * 9000));
     roomCodeDisplay.textContent = roomCode;
     hostStatus.textContent = 'Verbinde mit Server...';
-    peer = new Peer('igel-' + roomCode, PEER_CONFIG);
+    const currentPeer = new Peer('igel-' + roomCode, PEER_CONFIG);
+    peer = currentPeer;
 
-    peer.on('open', () => {
+    currentPeer.on('open', () => {
+        if (peer !== currentPeer) return;
         hostStatus.textContent = 'Warte auf Spieler 2 (Blau)...';
     });
-    peer.on('error', err => {
-        if (err && err.type === 'unavailable-id') startHostSession();
-        else hostStatus.textContent = 'Fehler: ' + (err.type || err.message || 'Unbekannt');
+    currentPeer.on('disconnected', () => {
+        if (peer !== currentPeer || currentPeer.destroyed) return;
+        hostStatus.textContent = 'Verbindung unterbrochen – verbinde neu...';
+        try { currentPeer.reconnect(); } catch (e) {}
     });
-    peer.on('connection', c => {
+    currentPeer.on('error', err => {
+        if (peer !== currentPeer) return;
+        if (err && err.type === 'unavailable-id') startHostSession();
+        else if (err && err.type === 'network' && !currentPeer.destroyed) {
+            try { currentPeer.reconnect(); } catch (e) {}
+        } else {
+            hostStatus.textContent = 'Fehler: ' + (err.type || err.message || 'Unbekannt');
+        }
+    });
+    currentPeer.on('connection', c => {
+        if (peer !== currentPeer) return;
         conn = c;
         let hostStarted = false;
+        hostStatus.textContent = 'Spieler 2 verbindet sich...';
 
         const activateHost = () => {
-            if (hostStarted) return;
+            if (hostStarted || peer !== currentPeer) return;
             hostStarted = true;
             netMode = 'host';
             stateSeq = 0;
@@ -374,67 +419,94 @@ function connectToHost() {
     cleanupPeer();
     isConnecting = true;
     roomCode = code;
-    joinStatus.textContent = 'Verbinde mit Raum ' + code + '...';
-    peer = new Peer(PEER_CONFIG);
+    let peerFound = false;
+    joinStatus.textContent = 'Suche Raum ' + code + '...';
+    const currentPeer = new Peer(PEER_CONFIG);
+    peer = currentPeer;
 
     connectTimeout = setTimeout(() => {
-        if (netMode !== 'client') {
+        if (peer === currentPeer && netMode !== 'client') {
             cleanupPeer();
-            joinStatus.textContent = 'Zeitüberschreitung – Raum ' + code + ' nicht gefunden.';
+            joinStatus.textContent = peerFound
+                ? 'Direktverbindung blockiert (Netzwerk/Mobilfunk). Bitte erneut versuchen.'
+                : 'Zeitüberschreitung – Server antwortet nicht oder Raum ' + code + ' ist nicht aktiv.';
         }
-    }, 10000);
+    }, 25000);
 
-    peer.on('open', () => {
-        const c = peer.connect('igel-' + code, { reliable: true });
-        conn = c;
-        let clientStarted = false;
+    currentPeer.on('open', () => {
+        if (peer !== currentPeer) return;
+        peerFound = true;
+        joinStatus.textContent = 'Raum ' + code + ' gefunden – baue Verbindung auf...';
 
-        const activateClient = () => {
-            if (clientStarted) return;
-            clientStarted = true;
-            isConnecting = false;
-            if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
-            netMode = 'client';
-            netTarget = null;
-            hasReceivedInitialState = false;
-            lastStateSeq = -1;
-            lastResetSeq = -1;
-            inputSeq = 0;
-            jumpPressCount = 0;
-            lastSentBlue = { blueJump: false, blueLeft: false, blueAct: false };
-            menuOverlay.classList.add('hidden');
-            sendBlueInputs(true);
-            if (clientInputTimer) clearInterval(clientInputTimer);
-            clientInputTimer = setInterval(() => sendBlueInputs(true), 40);
+        const openDataChannel = () => {
+            if (peer !== currentPeer || netMode === 'client') return;
+            if (conn) { try { conn.close(); } catch (e) {} }
+
+            const c = currentPeer.connect('igel-' + code, { reliable: true });
+            conn = c;
+            let clientStarted = false;
+
+            const activateClient = () => {
+                if (clientStarted || peer !== currentPeer) return;
+                clientStarted = true;
+                isConnecting = false;
+                if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
+                netMode = 'client';
+                netTarget = null;
+                hasReceivedInitialState = false;
+                lastStateSeq = -1;
+                lastResetSeq = -1;
+                inputSeq = 0;
+                jumpPressCount = 0;
+                lastSentBlue = { blueJump: false, blueLeft: false, blueAct: false };
+                menuOverlay.classList.add('hidden');
+                sendBlueInputs(true);
+                if (clientInputTimer) clearInterval(clientInputTimer);
+                clientInputTimer = setInterval(() => sendBlueInputs(true), 40);
+            };
+
+            c.on('data', d => {
+                if (!d) return;
+                if (!clientStarted) activateClient();
+                if (d.type === 'state') applyClientState(d);
+            });
+            c.on('close', () => {
+                isConnecting = false;
+                if (clientInputTimer) { clearInterval(clientInputTimer); clientInputTimer = null; }
+                netMode = 'local';
+                joinStatus.textContent = 'Verbindung getrennt.';
+                menuOverlay.classList.remove('hidden');
+                joinPanel.classList.remove('hidden');
+                mainMenu.classList.add('hidden');
+            });
+            c.on('error', err => {
+                if (peer !== currentPeer) return;
+                isConnecting = false;
+                joinStatus.textContent = 'Verbindungsfehler: ' + (err.type || err.message || 'Unbekannt');
+            });
+
+            if (c.open) {
+                activateClient();
+            } else {
+                c.on('open', activateClient);
+                // Falls der erste WebRTC-Handshake auf dem Handy hängt, nach 8s automatisch neu anstoßen
+                setTimeout(() => {
+                    if (peer === currentPeer && !clientStarted && netMode !== 'client') {
+                        joinStatus.textContent = 'Verbindung dauert länger – wechsle auf Relay-Route...';
+                        openDataChannel();
+                    }
+                }, 8000);
+            }
         };
 
-        c.on('data', d => {
-            if (!d) return;
-            if (!clientStarted) activateClient();
-            if (d.type === 'state') applyClientState(d);
-        });
-        c.on('close', () => {
-            isConnecting = false;
-            if (clientInputTimer) { clearInterval(clientInputTimer); clientInputTimer = null; }
-            netMode = 'local';
-            joinStatus.textContent = 'Verbindung getrennt.';
-            menuOverlay.classList.remove('hidden');
-            joinPanel.classList.remove('hidden');
-            mainMenu.classList.add('hidden');
-        });
-        c.on('error', err => {
-            isConnecting = false;
-            joinStatus.textContent = 'Verbindungsfehler: ' + (err.type || err.message || 'Unbekannt');
-        });
-
-        if (c.open) activateClient();
-        else c.on('open', activateClient);
+        openDataChannel();
     });
-    peer.on('error', err => {
+    currentPeer.on('error', err => {
+        if (peer !== currentPeer) return;
         isConnecting = false;
         if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
         joinStatus.textContent = err && err.type === 'peer-unavailable'
-            ? 'Raum ' + code + ' existiert nicht.'
+            ? 'Raum ' + code + ' existiert nicht (Host muss offen bleiben).'
             : 'Verbindung fehlgeschlagen (' + (err.type || 'Fehler') + ').';
     });
 }
