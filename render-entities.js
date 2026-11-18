@@ -182,8 +182,95 @@ function renderEntities() {
     }
     for (const m of mushrooms) {
         const sq = m.bounce * 8;
-        ctx.fillStyle = '#f3d5b5'; ctx.fillRect(m.x + 22, m.y + 12 + sq, 28, m.h - 10 - sq); ctx.strokeRect(m.x + 22, m.y + 12 + sq, 28, m.h - 10 - sq);
-        ctx.fillStyle = '#e5534b'; ctx.beginPath(); ctx.ellipse(m.x + m.w / 2, m.y + 12 + sq, m.w / 2, 14, 0, Math.PI, Math.PI * 2); ctx.closePath(); ctx.fill(); ctx.stroke();
+        const cx = m.x + m.w / 2;
+        const capY = m.y + 14 + sq;
+        const baseY = m.y + m.h + 2;
+        const rx = m.w / 2;
+        const ry = 17 - sq * 0.25;
+
+        ctx.save();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#0d0f12';
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+
+        // Leicht bauchiger Pilzstiel mit Schattierung
+        const drawStem = () => {
+            ctx.beginPath();
+            ctx.moveTo(cx - 12, capY - 2);
+            ctx.quadraticCurveTo(cx - 15, (capY + baseY) * 0.52, cx - 14, baseY);
+            ctx.lineTo(cx + 14, baseY);
+            ctx.quadraticCurveTo(cx + 15, (capY + baseY) * 0.52, cx + 12, capY - 2);
+            ctx.closePath();
+        };
+        ctx.fillStyle = '#f3d5b5';
+        drawStem();
+        ctx.fill();
+
+        ctx.save();
+        ctx.clip();
+        ctx.fillStyle = '#e2bc96';
+        ctx.fillRect(cx + 3, capY - 4, 16, baseY - capY + 8);
+        ctx.fillStyle = '#c89d74';
+        ctx.fillRect(cx - 18, capY - 2, 36, 7);
+        ctx.restore();
+
+        drawStem();
+        ctx.stroke();
+
+        // Weiße Pilz-Manschette (Ring am Stiel)
+        ctx.fillStyle = '#fffbeb';
+        ctx.beginPath();
+        ctx.ellipse(cx, capY + 7 - sq * 0.25, 16, 4.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Lamellen-Unterseite unter dem Hut
+        ctx.fillStyle = '#fde68a';
+        ctx.beginPath();
+        ctx.ellipse(cx, capY, rx - 3, 5, 0, 0, Math.PI);
+        ctx.fill();
+        ctx.stroke();
+
+        // Fliegenpilz-Hut (leuchtend rot mit Schattierung & weißen Punkten)
+        const drawCap = () => {
+            ctx.beginPath();
+            ctx.ellipse(cx, capY, rx, ry, 0, Math.PI, Math.PI * 2);
+            ctx.quadraticCurveTo(cx, capY + 3.5, cx - rx, capY);
+            ctx.closePath();
+        };
+        ctx.fillStyle = '#e5534b';
+        drawCap();
+        ctx.fill();
+
+        ctx.save();
+        ctx.clip();
+        // Dunklerer Rand unten am Hut
+        ctx.fillStyle = '#b91c1c';
+        ctx.fillRect(m.x - 4, capY - 4, m.w + 8, 10);
+
+        // Weiße Fliegenpilz-Punkte
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.ellipse(cx - 21, capY - 5.5, 4.2, 3.2, -0.25, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cx - 9, capY - 11.5, 4.8, 3.6, -0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cx + 5, capY - 7, 5.2, 3.8, 0.08, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cx + 19, capY - 10.5, 4.0, 3.0, 0.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cx + 25, capY - 4, 3.4, 2.5, 0.3, 0, Math.PI * 2); ctx.fill();
+
+        // Feiner Glanzstreifen oben links
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.48)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(cx, capY, rx - 7, Math.PI * 1.16, Math.PI * 1.48);
+        ctx.stroke();
+        ctx.restore();
+
+        // Hut-Kontur
+        ctx.strokeStyle = '#0d0f12';
+        ctx.lineWidth = 4;
+        drawCap();
+        ctx.stroke();
+        ctx.restore();
     }
     for (const br of breakables) {
         if (br.type === 'wall') {

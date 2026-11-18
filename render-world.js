@@ -19,32 +19,192 @@ function renderBackground(viewBounds) {
         ctx.fillRect(minX, GAME_H - 2, spanW, maxY - GAME_H + 4);
     }
 
-    ctx.lineWidth = 4; ctx.strokeStyle = '#0d0f12';
-    const cloudStep = 290;
-    const firstCloud = Math.floor((minX - 120 + state.camX * 0.1 - 90) / cloudStep);
-    const lastCloud = Math.ceil((maxX + 120 + state.camX * 0.1 - 90) / cloudStep);
+    ctx.lineWidth = 4; ctx.strokeStyle = '#0d0f12'; ctx.lineJoin = 'round';
+    const cloudStep = 310;
+    const firstCloud = Math.floor((minX - 160 + state.camX * 0.1 - 90) / cloudStep);
+    const lastCloud = Math.ceil((maxX + 160 + state.camX * 0.1 - 90) / cloudStep);
     for (let i = firstCloud; i <= lastCloud; i++) {
-        const cx = i * cloudStep + 90 - state.camX * 0.1;
-        const cy = 75 + (((i % 3) + 3) % 3) * 48;
-        ctx.fillStyle = '#ffffff'; ctx.beginPath();
-        ctx.arc(cx, cy, 24, Math.PI * 0.5, Math.PI * 1.5); ctx.arc(cx + 26, cy - 14, 30, Math.PI, Math.PI * 1.85);
-        ctx.arc(cx + 58, cy - 6, 26, Math.PI * 1.15, Math.PI * 1.95); ctx.arc(cx + 76, cy + 4, 20, Math.PI * 1.5, Math.PI * 0.5);
-        ctx.closePath(); ctx.fill(); ctx.stroke();
+        const mod3 = ((i % 3) + 3) % 3;
+        const cx = i * cloudStep + 90 + (mod3 === 1 ? 24 : mod3 === 2 ? -18 : 0) - state.camX * 0.1;
+        const cy = 68 + mod3 * 46;
+        const sc = mod3 === 0 ? 1.05 : (mod3 === 1 ? 0.86 : 1.18);
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(sc, sc);
+        ctx.lineWidth = 4 / sc;
+
+        // Weiche Wolken-Silhouette mit flacher, gemütlicher Unterseite
+        const drawCloudPath = () => {
+            ctx.beginPath();
+            ctx.moveTo(-22, 16);
+            ctx.arc(-22, -2, 18, Math.PI * 0.5, Math.PI * 1.48);
+            ctx.arc(-2, -16, 24, Math.PI * 1.08, Math.PI * 1.88);
+            ctx.arc(28, -20, 29, Math.PI * 1.12, Math.PI * 1.92);
+            ctx.arc(58, -9, 23, Math.PI * 1.25, Math.PI * 1.98);
+            ctx.arc(76, 2, 14, Math.PI * 1.45, Math.PI * 0.5);
+            ctx.closePath();
+        };
+
+        ctx.fillStyle = '#ffffff';
+        drawCloudPath();
+        ctx.fill();
+
+        // Warmer Creme-Schatten an der Unterseite & Sonnen-Glanz oben
+        ctx.save();
+        ctx.clip();
+        ctx.fillStyle = '#e8eef5';
+        ctx.beginPath();
+        ctx.ellipse(28, 17, 68, 11, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fef6e4';
+        ctx.beginPath();
+        ctx.ellipse(28, 20, 62, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Kontur & innere fluffige Bausch-Linie
+        ctx.strokeStyle = '#0d0f12';
+        drawCloudPath();
+        ctx.stroke();
+
+        ctx.lineWidth = 3 / sc;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(24, -14, 19, Math.PI * 1.15, Math.PI * 1.72);
+        ctx.stroke();
+        ctx.restore();
     }
 
-    const treeCols = ['#d95338', '#e67e22', '#c83e2b'];
-    const treeStep = 240;
-    const firstTree = Math.floor((minX - 100 + state.camX * 0.22) / treeStep);
-    const lastTree = Math.ceil((maxX + 100 + state.camX * 0.22) / treeStep);
+    // Warme Herbst-Paletten (Hauptton, Schattenton, Sonnen-Highlight)
+    const treePalettes = [
+        { main: '#d95338', dark: '#a83823', light: '#f4845f' },
+        { main: '#e67e22', dark: '#b85b14', light: '#f6ad55' },
+        { main: '#c83e2b', dark: '#922619', light: '#e56b55' },
+        { main: '#d99b26', dark: '#a67114', light: '#f6c85f' }
+    ];
+    const treeStep = 235;
+    const firstTree = Math.floor((minX - 130 + state.camX * 0.22) / treeStep);
+    const lastTree = Math.ceil((maxX + 130 + state.camX * 0.22) / treeStep);
     for (let i = firstTree; i <= lastTree; i++) {
-        const tx = i * treeStep - state.camX * 0.22;
+        const mod4 = ((i % 4) + 4) % 4;
         const mod3 = ((i % 3) + 3) % 3;
         const mod2 = ((i % 2) + 2) % 2;
-        const hillY = 445 + Math.sin((tx + state.camX * 0.15) * 0.004) * 35, crownY = hillY - 115 - mod2 * 18;
-        ctx.fillStyle = '#5c3a21'; ctx.fillRect(tx - 14, crownY + 20, 28, groundBottom - crownY); ctx.strokeRect(tx - 14, crownY + 20, 28, groundBottom - crownY);
-        ctx.fillStyle = treeCols[mod3]; ctx.beginPath();
-        ctx.arc(tx - 32, crownY + 12, 34, Math.PI * 0.45, Math.PI * 1.65); ctx.arc(tx, crownY - 18, 42, Math.PI * 0.95, Math.PI * 2.05);
-        ctx.arc(tx + 32, crownY + 12, 34, Math.PI * 1.35, Math.PI * 0.55); ctx.closePath(); ctx.fill(); ctx.stroke();
+        const pal = treePalettes[mod4];
+        const tx = i * treeStep + (mod3 - 1) * 18 - state.camX * 0.22;
+        const hillY = 445 + Math.sin((tx + state.camX * 0.15) * 0.004) * 35;
+        const trunkH = 112 + mod3 * 16;
+        const crownY = hillY - trunkH;
+        const rootBaseY = hillY + 24;
+        const tw = 15 + (mod2 ? 2 : 0);
+
+        ctx.save();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#0d0f12';
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+
+        // Stamm mit leicht verjüngter Form und auslaufenden Wurzelansätzen
+        const drawTrunkPath = () => {
+            ctx.beginPath();
+            ctx.moveTo(tx - tw + 3, crownY + 12);
+            ctx.lineTo(tx + tw - 3, crownY + 12);
+            ctx.quadraticCurveTo(tx + tw, hillY - 12, tx + tw + 15, rootBaseY);
+            ctx.quadraticCurveTo(tx + 7, rootBaseY - 4, tx + 3, rootBaseY + 3);
+            ctx.quadraticCurveTo(tx - 1, rootBaseY - 3, tx - 5, rootBaseY + 2);
+            ctx.quadraticCurveTo(tx - 10, rootBaseY - 4, tx - tw - 15, rootBaseY);
+            ctx.quadraticCurveTo(tx - tw, hillY - 12, tx - tw + 3, crownY + 12);
+            ctx.closePath();
+        };
+
+        ctx.fillStyle = '#6b4226';
+        drawTrunkPath();
+        ctx.fill();
+
+        // Rinden-Schattenseite rechts & Wurzelfurchen
+        ctx.save();
+        ctx.clip();
+        ctx.fillStyle = '#4e2e19';
+        ctx.fillRect(tx + 2, crownY, tw + 20, trunkH + 40);
+        ctx.fillStyle = '#855636';
+        ctx.fillRect(tx - tw + 3, crownY, 6, trunkH + 30);
+        ctx.restore();
+
+        drawTrunkPath();
+        ctx.stroke();
+
+        // Rindenstruktur (vertikale Maserung, Astloch & Wurzelkerben)
+        ctx.lineWidth = 2.6;
+        ctx.beginPath();
+        ctx.moveTo(tx - 5, crownY + 30);
+        ctx.quadraticCurveTo(tx - 7, crownY + 56, tx - 4, crownY + 82);
+        ctx.moveTo(tx + 5, crownY + 42);
+        ctx.quadraticCurveTo(tx + 7, crownY + 72, tx + 5, hillY - 4);
+        ctx.moveTo(tx - 8, hillY + 4);
+        ctx.quadraticCurveTo(tx - 11, hillY + 13, tx - 14, rootBaseY - 1);
+        ctx.moveTo(tx + 8, hillY + 3);
+        ctx.quadraticCurveTo(tx + 11, hillY + 13, tx + 14, rootBaseY - 1);
+        ctx.stroke();
+
+        // Kleines Astloch bei jedem zweiten Baum
+        if (mod2 === 0) {
+            ctx.fillStyle = '#3b2110';
+            ctx.beginPath();
+            ctx.ellipse(tx - 2, crownY + 58, 3.5, 6, 0.1, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        // Schöne, mehrschichtige Herbst-Baumkrone
+        ctx.lineWidth = 4;
+        const cw = mod2 === 0 ? 1.06 : 0.94;
+        const drawCrownPath = () => {
+            ctx.beginPath();
+            ctx.moveTo(tx - 24 * cw, crownY + 30);
+            ctx.arc(tx - 38 * cw, crownY + 10, 26, Math.PI * 0.45, Math.PI * 1.48);
+            ctx.arc(tx - 24 * cw, crownY - 18, 28, Math.PI * 0.95, Math.PI * 1.75);
+            ctx.arc(tx, crownY - 32, 34, Math.PI * 1.08, Math.PI * 1.92);
+            ctx.arc(tx + 24 * cw, crownY - 18, 28, Math.PI * 1.25, Math.PI * 2.05);
+            ctx.arc(tx + 38 * cw, crownY + 10, 26, Math.PI * 1.52, Math.PI * 0.55);
+            ctx.arc(tx + 15 * cw, crownY + 24, 21, Math.PI * 0.1, Math.PI * 0.9);
+            ctx.arc(tx - 15 * cw, crownY + 24, 21, Math.PI * 0.1, Math.PI * 0.9);
+            ctx.closePath();
+        };
+
+        ctx.fillStyle = pal.main;
+        drawCrownPath();
+        ctx.fill();
+
+        // Schatten- und Lichtvolumen innerhalb der Krone
+        ctx.save();
+        ctx.clip();
+        ctx.fillStyle = pal.dark;
+        ctx.beginPath();
+        ctx.arc(tx + 16 * cw, crownY + 20, 48, 0, Math.PI * 2);
+        ctx.arc(tx - 22 * cw, crownY + 26, 36, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = pal.light;
+        ctx.beginPath();
+        ctx.arc(tx - 12 * cw, crownY - 26, 26, 0, Math.PI * 2);
+        ctx.arc(tx - 32 * cw, crownY - 2, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Außenkontur & innere Laub-Büschel-Linien
+        ctx.strokeStyle = '#0d0f12';
+        drawCrownPath();
+        ctx.stroke();
+
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(tx - 14 * cw, crownY - 6, 18, Math.PI * 1.15, Math.PI * 1.85);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(tx + 16 * cw, crownY + 2, 16, Math.PI * 1.2, Math.PI * 1.9);
+        ctx.stroke();
+
+        ctx.restore();
     }
 
     const hillStartX = Math.floor((minX - 80) / 40) * 40;
