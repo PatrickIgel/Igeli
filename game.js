@@ -1,905 +1,423 @@
-/**
- * IGELIS REISE - Hauptspiellogik
- */
-
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-
-// UI Elemente
-const startScreen = document.getElementById('startScreen');
-const gameOverScreen = document.getElementById('gameOverScreen');
-const winScreen = document.getElementById('winScreen');
-const hud = document.getElementById('hud');
-const touchControls = document.getElementById('touch-controls');
-
-const scoreDisplay = document.getElementById('scoreDisplay');
-const timeDisplay = document.getElementById('timeDisplay');
-const livesDisplay = document.getElementById('livesDisplay');
-const finalScoreLost = document.getElementById('finalScoreLost');
-const finalScoreWin = document.getElementById('finalScoreWin');
-const winDetails = document.getElementById('winDetails');
-
-// Spielkonstanten
-const GAME_WIDTH = 800;
-const GAME_HEIGHT = 450;
-const GRAVITY = 0.65;
-const FRICTION = 0.82;
-const LEVEL_LENGTH = 3600;
-
-// Spielzustand
-let gameState = 'START'; // START, PLAYING, GAMEOVER, WIN
-let score = 0;
-let timeRemaining = 90;
-let lastTime = 0;
-let cameraX = 0;
-let particles = [];
-let floatingTexts = [];
-
-// Spieler (Igeli)
-const player = {
-    x: 100,
-    y: 300,
-    width: 44,
-    height: 30,
-    vx: 0,
-    vy: 0,
-    speed: 0.9,
-    maxSpeed: 5.5,
-    jumpForce: -12.5,
-    isGrounded: false,
-    facingRight: true,
-    lives: 3,
-    invulnerable: 0,
-    walkCycle: 0
-};
-
-// Level-Objekte
-let platforms = [];
-let collectibles = [];
-let enemies = [];
-let backgroundElements = [];
-let goal = { x: 3420, y: 310, width: 80, height: 80 };
-
-// Initialisierung & Resize
-function resizeCanvas() {
-    canvas.width = GAME_WIDTH;
-    canvas.height = GAME_HEIGHT;
-}
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
-
-// Level aufbauen
-function initLevel() {
-    score = 0;
-    timeRemaining = 90;
-    cameraX = 0;
-    particles = [];
-    floatingTexts = [];
-    
-    player.x = 80;
-    player.y = 300;
-    player.vx = 0;
-    player.vy = 0;
-    player.lives = 3;
-    player.invulnerable = 0;
-    player.facingRight = true;
-
-    // Boden und Plattformen
-    platforms = [
-        // Hauptboden (mit kleinen Gruben)
-        { x: 0, y: 390, w: 900, h: 60, type: 'ground' },
-        { x: 1020, y: 390, w: 800, h: 60, type: 'ground' },
-        { x: 1950, y: 390, w: 750, h: 60, type: 'ground' },
-        { x: 2820, y: 390, w: 850, h: 60, type: 'ground' },
-
-        // Schwebende Holz- & Erdplattformen
-        { x: 280, y: 300, w: 120, h: 20, type: 'wood' },
-        { x: 480, y: 230, w: 140, h: 20, type: 'wood' },
-        { x: 700, y: 280, w: 110, h: 20, type: 'wood' },
-        
-        // Über erste Grube
-        { x: 910, y: 330, w: 100, h: 20, type: 'wood' },
-
-        { x: 1180, y: 290, w: 130, h: 20, type: 'wood' },
-        { x: 1380, y: 210, w: 150, h: 20, type: 'wood' },
-        { x: 1600, y: 270, w: 120, h: 20, type: 'wood' },
-
-        // Über zweite Grube
-        { x: 1830, y: 320, w: 110, h: 20, type: 'wood' },
-
-        { x: 2100, y: 280, w: 140, h: 20, type: 'wood' },
-        { x: 2320, y: 200, w: 140, h: 20, type: 'wood' },
-        { x: 2540, y: 270, w: 120, h: 20, type: 'wood' },
-
-        // Über dritte Grube
-        { x: 2710, y: 330, w: 100, h: 20, type: 'wood' },
-
-        // Endspurt Plattformen
-        { x: 2980, y: 290, w: 130, h: 20, type: 'wood' },
-        { x: 3180, y: 230, w: 130, h: 20, type: 'wood' }
-    ];
-
-    // Sammelobjekte (Äpfel, Beeren, Goldene Eicheln)
-    collectibles = [
-        // Äpfel (10 Punkte) & Beeren (25 Punkte)
-        { x: 320, y: 265, type: 'apple', collected: false },
-        { x: 360, y: 265, type: 'apple', collected: false },
-        { x: 530, y: 195, type: 'berry', collected: false },
-        { x: 570, y: 195, type: 'berry', collected: false },
-        { x: 740, y: 245, type: 'apple', collected: false },
-        { x: 950, y: 290, type: 'acorn', collected: false }, // Goldene Eichel (50 Pkt)
-
-        { x: 1100, y: 355, type: 'apple', collected: false },
-        { x: 1230, y: 255, type: 'berry', collected: false },
-        { x: 1440, y: 175, type: 'acorn', collected: false },
-        { x: 1650, y: 235, type: 'apple', collected: false },
-        { x: 1875, y: 280, type: 'berry', collected: false },
-
-        { x: 2150, y: 245, type: 'apple', collected: false },
-        { x: 2190, y: 245, type: 'apple', collected: false },
-        { x: 2380, y: 165, type: 'acorn', collected: false },
-        { x: 2590, y: 235, type: 'berry', collected: false },
-        { x: 2750, y: 290, type: 'berry', collected: false },
-
-        { x: 3030, y: 255, type: 'apple', collected: false },
-        { x: 3235, y: 195, type: 'acorn', collected: false },
-        { x: 3320, y: 355, type: 'berry', collected: false }
-    ];
-
-    // Gegner (Stachelige Käfer & Fliegenpilz-Wächter)
-    enemies = [
-        { x: 600, y: 362, w: 34, h: 28, vx: 1.5, minX: 450, maxX: 850, type: 'beetle' },
-        { x: 1300, y: 362, w: 34, h: 28, vx: -1.8, minX: 1100, maxX: 1750, type: 'beetle' },
-        { x: 1420, y: 182, w: 34, h: 28, vx: 1.2, minX: 1385, maxX: 1500, type: 'beetle' },
-        { x: 2200, y: 362, w: 34, h: 28, vx: 2.0, minX: 2000, maxX: 2650, type: 'beetle' },
-        { x: 2350, y: 172, w: 34, h: 28, vx: -1.2, minX: 2325, maxX: 2430, type: 'beetle' },
-        { x: 3050, y: 362, w: 34, h: 28, vx: -2.2, minX: 2880, maxX: 3320, type: 'beetle' }
-    ];
-
-    // Dekoration im Hintergrund (Bäume, Büsche, Wolken)
-    backgroundElements = [];
-    for (let i = 0; i < 25; i++) {
-        backgroundElements.push({
-            x: i * 180 + Math.random() * 80,
-            y: 390,
-            type: i % 3 === 0 ? 'tree' : 'bush',
-            scale: 0.8 + Math.random() * 0.5
-        });
-    }
-    for (let i = 0; i < 15; i++) {
-        backgroundElements.push({
-            x: i * 280 + Math.random() * 100,
-            y: 40 + Math.random() * 110,
-            type: 'cloud',
-            scale: 0.7 + Math.random() * 0.6
-        });
-    }
-
-    updateHUD();
+function launchCatapult() {
+    const power = 330 + player.slingshotCharge * 330;
+    player.vx = player.facing * Math.cos(player.aimAngle) * power;
+    player.vy = -Math.sin(player.aimAngle) * power * 1.15 - 120;
+    player.grounded = false; player.slingshotCharge = 0; player.aimState = 0; player.catapultFlight = true;
+    playTone(260, 'triangle', 0.25, 0.16, 680);
 }
 
-// HUD aktualisieren
-function updateHUD() {
-    scoreDisplay.textContent = score;
-    timeDisplay.textContent = Math.ceil(timeRemaining);
-    livesDisplay.textContent = '❤️'.repeat(Math.max(0, player.lives));
-}
-
-// Partikeleffekt erstellen
-function spawnParticles(x, y, color, count = 10) {
-    for (let i = 0; i < count; i++) {
-        particles.push({
-            x: x,
-            y: y,
-            vx: (Math.random() - 0.5) * 6,
-            vy: (Math.random() - 0.8) * 6,
-            size: 3 + Math.random() * 4,
-            color: color,
-            life: 1.0
-        });
-    }
-}
-
-// Schwebenden Text erstellen
-function spawnFloatingText(x, y, text, color = '#FFD54F') {
-    floatingTexts.push({
-        x: x,
-        y: y,
-        text: text,
-        color: color,
-        life: 1.0
-    });
-}
-
-// Kollisionsprüfung Rechteck
-function checkRectCollision(r1, r2) {
-    return (
-        r1.x < r2.x + r2.w &&
-        r1.x + r1.width > r2.x &&
-        r1.y < r2.y + r2.h &&
-        r1.y + r1.height > r2.y
-    );
-}
-
-// Spieler nimmt Schaden
-function damagePlayer() {
-    if (player.invulnerable > 0) return;
-    
-    player.lives--;
-    player.invulnerable = 90; // 1.5 Sekunden unverwundbar
-    player.vy = -8; // Kleiner Rückstoß nach oben
-    spawnParticles(player.x + player.width / 2, player.y + player.height / 2, '#E53935', 15);
-    updateHUD();
-
-    if (player.lives <= 0) {
-        endGame(false);
-    }
-}
-
-// Spiel beenden
-function endGame(won) {
-    gameState = won ? 'WIN' : 'GAMEOVER';
-    hud.classList.add('hidden');
-    touchControls.classList.add('hidden');
-
-    if (won) {
-        const timeBonus = Math.ceil(timeRemaining) * 5;
-        const totalScore = score + timeBonus;
-        finalScoreWin.textContent = totalScore;
-        winDetails.textContent = `(Sammelpunkte: ${score} + Zeitbonus: ${timeBonus})`;
-        winScreen.classList.remove('hidden');
-        spawnParticles(player.x, player.y, '#FFD54F', 40);
-    } else {
-        finalScoreLost.textContent = score;
-        gameOverScreen.classList.remove('hidden');
-    }
-}
-
-// Update-Logik pro Frame
 function update(dt) {
-    if (gameState !== 'PLAYING') return;
-
-    // Timer herunterzählen
-    timeRemaining -= dt;
-    if (timeRemaining <= 0) {
-        timeRemaining = 0;
-        updateHUD();
-        endGame(false);
+    if (netMode === 'client') {
+        state.blueActHeld = !!(inputs.blueAct || keys.blueAct);
+        const f = Math.min(1, 20 * dt);
+        if (player.invuln > 0) player.invuln = Math.max(0, player.invuln - dt);
+        if (netTarget) {
+            player.x += (netTarget.px - player.x) * f;
+            player.y += (netTarget.py - player.y) * f;
+            player.rot += (netTarget.prot - player.rot) * f;
+            state.camX += (netTarget.camX - state.camX) * f;
+        }
+        for (const b of boxes) if (b.tx !== undefined) { b.x += (b.tx - b.x) * f; b.y += (b.ty - b.y) * f; }
+        for (const g of gates) if (g.tOpenH !== undefined) g.openH += (g.tOpenH - g.openH) * f;
+        for (const z of zombies) if (z.tx !== undefined) { z.x += (z.tx - z.x) * f; z.y += (z.ty - z.y) * f; }
+        for (const rb of ropeBridges) if (rb.ty !== undefined) rb.y += (rb.ty - rb.y) * f;
+        for (const w of wasps) if (w.tx !== undefined) { w.x += (w.tx - w.x) * f; w.y += (w.ty - w.y) * f; }
+        for (const bt of beetles) if (bt.tx !== undefined) { bt.x += (bt.tx - bt.x) * f; bt.y += (bt.ty - bt.y) * f; }
+        for (const sw of seesaws) if (sw.tAngle !== undefined) sw.angle += (sw.tAngle - sw.angle) * f;
+        for (const ms of mossPlatforms) if (ms.ty !== undefined) ms.y += (ms.ty - ms.y) * f;
+        for (const m of mushrooms) m.bounce = Math.max(0, m.bounce - dt * 4);
         return;
     }
-    timeDisplay.textContent = Math.ceil(timeRemaining);
 
-    // Unverwundbarkeit herunterzählen
-    if (player.invulnerable > 0) player.invulnerable--;
+    if (state.won || state.gameOver) return;
+    if (player.invuln > 0) player.invuln -= dt;
 
-    // Horizontale Bewegung
-    if (Input.left) {
-        player.vx -= player.speed;
-        player.facingRight = false;
-    }
-    if (Input.right) {
-        player.vx += player.speed;
-        player.facingRight = true;
-    }
+    const left = netMode === 'host' ? remoteInputs.blueLeft : (inputs.blueLeft || keys.blueLeft);
+    const right = inputs.redRight || keys.redRight;
+    const curl = inputs.redCurl || keys.redCurl;
+    const redAct = inputs.redAct || keys.redAct;
+    const blueAct = netMode === 'host' ? remoteInputs.blueAct : (inputs.blueAct || keys.blueAct);
+    const jump = netMode === 'host' ? (remoteInputs.blueJump || remoteJumpPulse) : (inputs.blueJump || keys.blueJump);
 
-    // Reibung & Geschwindigkeitsbegrenzung
-    player.vx *= FRICTION;
-    if (Math.abs(player.vx) < 0.1) player.vx = 0;
-    if (player.vx > player.maxSpeed) player.vx = player.maxSpeed;
-    if (player.vx < -player.maxSpeed) player.vx = -player.maxSpeed;
+    state.redActHeld = !!redAct;
+    state.blueActHeld = !!blueAct;
 
-    // Laufanimation
-    if (Math.abs(player.vx) > 0.3 && player.isGrounded) {
-        player.walkCycle += Math.abs(player.vx) * 0.08;
+    const jumpJustPressed = jump && !player.wasJumpPressed;
+    player.wasJumpPressed = jump;
+    remoteJumpPulse = false;
+    player.curled = curl;
+    if (left && !right) player.facing = -1;
+    if (right && !left) player.facing = 1;
+
+    if (player.curled && player.grounded) {
+        player.vx *= Math.pow(0.01, dt);
+        if (player.aimState === 0) {
+            player.slingshotCharge = 0;
+            if (jumpJustPressed) { player.aimState = 1; player.aimAngle = 0.25; player.aimDir = 1; playTone(440, 'sine', 0.08, 0.08); }
+        } else if (player.aimState === 1) {
+            player.aimAngle += player.aimDir * dt * 1.45;
+            if (player.aimAngle >= 1.45) { player.aimAngle = 1.45; player.aimDir = -1; }
+            if (player.aimAngle <= 0.12) { player.aimAngle = 0.12; player.aimDir = 1; }
+            if (jumpJustPressed) { player.aimState = 2; player.slingshotCharge = 0.05; playTone(560, 'sine', 0.1, 0.1); }
+        } else if (player.aimState === 2) {
+            if (jump) {
+                player.slingshotCharge = Math.min(1.0, player.slingshotCharge + dt * 0.52);
+                if (player.slingshotCharge >= 1.0) launchCatapult();
+            } else if (player.slingshotCharge > 0.05) launchCatapult();
+        }
     } else {
-        player.walkCycle = 0;
-    }
-
-    // Springen
-    if (Input.jump && player.isGrounded) {
-        player.vy = player.jumpForce;
-        player.isGrounded = false;
-        spawnParticles(player.x + player.width / 2, player.y + player.height, '#D7CCC8', 6);
-    }
-
-    // Schwerkraft anwenden
-    player.vy += GRAVITY;
-
-    // X-Bewegung & Kollision
-    player.x += player.vx;
-    if (player.x < 0) { player.x = 0; player.vx = 0; }
-    if (player.x > LEVEL_LENGTH - player.width) { player.x = LEVEL_LENGTH - player.width; }
-
-    for (let p of platforms) {
-        if (checkRectCollision(player, p)) {
-            if (player.vx > 0) player.x = p.x - player.width;
-            else if (player.vx < 0) player.x = p.x + p.w;
-            player.vx = 0;
+        player.slingshotCharge = 0; player.aimState = 0;
+        if (player.grounded) player.catapultFlight = false;
+        const moveSpeed = player.curled ? 125 : 175;
+        let targetVx = (left ? -moveSpeed : 0) + (right ? moveSpeed : 0);
+        if (!player.catapultFlight) player.vx += (targetVx - player.vx) * Math.min(1, 8 * dt);
+        if (jumpJustPressed && player.grounded) {
+            player.vy = -385; player.grounded = false;
+            playTone(320, 'sine', 0.16, 0.12, 540);
         }
     }
 
-    // Y-Bewegung & Kollision
-    player.y += player.vy;
-    player.isGrounded = false;
-
-    for (let p of platforms) {
-        if (checkRectCollision(player, p)) {
-            if (player.vy > 0) {
-                player.y = p.y - player.height;
-                player.vy = 0;
-                player.isGrounded = true;
-            } else if (player.vy < 0) {
-                player.y = p.y + p.h;
-                player.vy = 0;
+    let inUpdraft = false;
+    for (const w of winds) {
+        if (!w.active || !isColorActive(w.color)) continue;
+        if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, w.x, w.y, w.w, w.h)) {
+            if (w.vy < 0 && jump && !player.curled) {
+                inUpdraft = true; player.catapultFlight = false;
+                player.vy = Math.max(-290, player.vy - 1180 * dt);
+            }
+            if (w.vx !== 0 && !(player.curled && player.grounded)) {
+                player.vx += (player.catapultFlight ? w.vx * 0.45 : w.vx * 3.8) * dt;
+                if (!player.catapultFlight && w.vx < 0 && player.vx > -140) player.vx = -140;
+                if (!player.catapultFlight && w.vx > 0 && player.vx < 140) player.vx = 140;
             }
         }
     }
 
-    // In Grube gefallen?
-    if (player.y > GAME_HEIGHT + 50) {
-        player.lives--;
-        updateHUD();
-        if (player.lives <= 0) {
-            endGame(false);
-            return;
+    // Magnet-Blöcke: ziehen den eingerollten Igel an, solange die passende Farbe aktiv gehalten wird
+    let inMagnetPull = false;
+    for (const mg of magnetBlocks) {
+        if (!isColorActive(mg.color) || !player.curled) continue;
+        const dx = mg.x - player.x;
+        const dy = mg.y - player.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 1 && dist <= mg.range) {
+            inMagnetPull = true;
+            player.catapultFlight = false;
+            const pull = mg.force * (0.55 + 0.45 * (1 - dist / mg.range));
+            player.vx += (dx / dist) * pull * dt;
+            player.vy += (dy / dist) * pull * dt;
+            const maxSpd = 430;
+            const spd = Math.hypot(player.vx, player.vy);
+            if (spd > maxSpd) {
+                player.vx = (player.vx / spd) * maxSpd;
+                player.vy = (player.vy / spd) * maxSpd;
+            }
+        }
+    }
+
+    // Zerbrechliche Ketten / Hängebrücken aktualisieren
+    for (const rb of ropeBridges) {
+        if (!rb.cut) {
+            if ((player.catapultFlight || (!player.grounded && player.curled && Math.hypot(player.vx, player.vy) > 260)) &&
+                rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, rb.ropeX - 12, rb.ropeY, 24, Math.max(12, rb.y - rb.ropeY))) {
+                rb.cut = true;
+                rb.vy = 40;
+                playTone(520, 'sawtooth', 0.18, 0.15, 180);
+            }
+        } else if (!rb.settled) {
+            rb.vy = Math.min(780, rb.vy + 980 * dt);
+            rb.y += rb.vy * dt;
+            if (rb.y >= rb.targetY) {
+                rb.y = rb.targetY;
+                rb.vy = 0;
+                rb.settled = true;
+                playTone(130, 'square', 0.16, 0.15, 65);
+            }
+        }
+    }
+
+    const grav = (inUpdraft || inMagnetPull) ? 0 : ((player.curled && !player.grounded) ? 1350 : 920);
+    player.vy = Math.min(820, player.vy + grav * dt);
+    const minBound = state.minX || 40;
+    const maxBound = state.maxX || (goalX + 120);
+    player.x += player.vx * dt;
+    if (player.x < minBound) { player.x = minBound; if (player.vx < 0) player.vx = 0; }
+    if (player.x > maxBound) { player.x = maxBound; if (player.vx > 0) player.vx = 0; }
+
+    for (const b of boxes) {
+        if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, b.x, b.y, b.w, b.h) && player.y + player.r * 0.5 > b.y + 6) {
+            b.x = player.x < b.x + b.w / 2 ? player.x + player.r : player.x - player.r - b.w;
+        }
+    }
+    for (let i = breakables.length - 1; i >= 0; i--) {
+        const br = breakables[i];
+        if (br.type === 'wall' && rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, br.x, br.y, br.w, br.h)) {
+            if (player.curled && Math.abs(player.vx) > 250) { breakables.splice(i, 1); playTone(140, 'square', 0.2, 0.15, 60); }
+            else { player.x = player.vx > 0 ? br.x - player.r : br.x + br.w + player.r; player.vx = 0; }
+        }
+    }
+
+    const solids = [...platforms];
+    for (const g of gates) if (g.openH < g.h - 8) solids.push({ x: g.x, y: g.y, w: g.w, h: g.h - g.openH });
+    for (const cp of colorPlatforms) if (isColorPlatformActive(cp)) solids.push({ x: cp.x, y: cp.y, w: cp.w, h: cp.h });
+    for (const cl of colorLasers) if (!isColorActive(cl.color)) solids.push({ x: cl.x, y: cl.y, w: cl.w, h: cl.h });
+    for (const rb of ropeBridges) solids.push({ x: rb.x, y: rb.y, w: rb.w, h: rb.h });
+    for (const mg of magnetBlocks) solids.push({ x: mg.x - mg.r, y: mg.y - mg.r, w: mg.r * 2, h: mg.r * 2 });
+    for (const ms of mossPlatforms) if (!ms.broken && !ms.falling) solids.push({ x: ms.x, y: ms.y, w: ms.w, h: ms.h });
+
+    for (const s of solids) {
+        if (rectOverlap(player.x - player.r, player.y - player.r + 4, player.r * 2, player.r * 2 - 8, s.x, s.y, s.w, s.h)) {
+            const isRampSeam = ramps.some(rp =>
+                ((Math.abs((s.x + s.w) - rp.x1) <= 2 && Math.abs(s.y - rp.y1) <= 4) ||
+                 (Math.abs(s.x - rp.x2) <= 2 && Math.abs(s.y - rp.y2) <= 4)) &&
+                player.x + player.r >= rp.x1 - 6 && player.x - player.r <= rp.x2 + 6 &&
+                player.y + player.r <= rp.y1 + Math.max(0, Math.min(1, (player.x - rp.x1) / (rp.x2 - rp.x1))) * (rp.y2 - rp.y1) + 18
+            );
+            if (isRampSeam) continue;
+            if (player.vx > 0) player.x = s.x - player.r; else if (player.vx < 0) player.x = s.x + s.w + player.r;
+            player.vx = 0;
+        }
+    }
+
+    const prevVy = player.vy, wasGrounded = player.grounded;
+    player.y += player.vy * dt;
+    player.grounded = false;
+
+    // Glasböden: zerbrechen sofort, wenn man sich darauf einrollt oder eingerollt darauf landet
+    for (let i = breakables.length - 1; i >= 0; i--) {
+        const br = breakables[i];
+        if (br.type === 'floor' && rectOverlap(player.x - player.r + 4, player.y - player.r, player.r * 2 - 8, player.r * 2 + 4, br.x, br.y, br.w, br.h)) {
+            if (player.curled && player.y < br.y + 14) {
+                breakables.splice(i, 1);
+                player.grounded = false;
+                playTone(130, 'sawtooth', 0.22, 0.16, 55);
+            } else if (player.vy >= 0 && player.y - player.r < br.y) {
+                player.y = br.y - player.r;
+                player.vy = 0;
+                player.grounded = true;
+            }
+        }
+    }
+    for (const s of [...solids, ...boxes]) {
+        if (rectOverlap(player.x - player.r + 4, player.y - player.r, player.r * 2 - 8, player.r * 2, s.x, s.y, s.w, s.h)) {
+            if (player.vy >= 0 && player.y < s.y + 18) { player.y = s.y - player.r; player.vy = 0; player.grounded = true; }
+            else if (player.vy < 0 && player.y > s.y + s.h - 18) { player.y = s.y + s.h + player.r; player.vy = 0; }
+        }
+    }
+
+    for (const rp of ramps) {
+        if (player.x >= rp.x1 - 10 && player.x <= rp.x2 + 10) {
+            const t = Math.max(0, Math.min(1, (player.x - rp.x1) / (rp.x2 - rp.x1)));
+            const ry = rp.y1 + t * (rp.y2 - rp.y1);
+            const snapUp = wasGrounded ? 16 : 8;
+            if (player.vy >= 0 && player.y + player.r >= ry - snapUp && player.y - player.r < ry + 28) {
+                player.y = ry - player.r; player.vy = 0; player.grounded = true;
+                if (player.curled) { player.vx = Math.min(540, player.vx + 560 * dt); player.catapultFlight = true; }
+            }
+        }
+    }
+    // Zerbröselnde Moos-Plattformen (Timer & Kugel-Stampfer)
+    for (const ms of mossPlatforms) {
+        if (ms.broken) continue;
+        if (ms.falling) {
+            ms.vy = Math.min(760, ms.vy + 1150 * dt);
+            ms.y += ms.vy * dt;
+            if (ms.y > GAME_H + 60) ms.broken = true;
+            continue;
+        }
+        const onTop = player.grounded && Math.abs((player.y + player.r) - ms.y) <= 6 && player.x + player.r * 0.6 >= ms.x && player.x - player.r * 0.6 <= ms.x + ms.w;
+        if (onTop) {
+            if (player.curled) {
+                ms.falling = true;
+                ms.vy = 160;
+                player.grounded = false;
+                playTone(135, 'sawtooth', 0.2, 0.15, 60);
+                continue;
+            }
+            if (!ms.triggered) {
+                ms.triggered = true;
+                playTone(290, 'triangle', 0.1, 0.09, 210);
+            }
+        }
+        if (ms.triggered) {
+            ms.timer += dt;
+            if (ms.timer >= 1.0) {
+                ms.falling = true;
+                ms.vy = 80;
+                playTone(150, 'sawtooth', 0.18, 0.14, 65);
+            }
+        }
+    }
+
+    for (const sw of seesaws) {
+        let torque = 0;
+        if (Math.abs(player.x - sw.cx) <= sw.halfW) {
+            const sy = sw.cy + (player.x - sw.cx) * Math.tan(sw.angle);
+            if (player.vy >= 0 && player.y + player.r >= sy - 10 && player.y - player.r < sy + 22) {
+                player.y = sy - player.r; player.vy = 0; player.grounded = true;
+                torque += ((player.x - sw.cx) / sw.halfW) * (player.curled ? 1.5 : 0.75);
+            }
+        }
+        for (const b of boxes) {
+            const bcx = b.x + b.w / 2;
+            if (Math.abs(bcx - sw.cx) <= sw.halfW) {
+                const sy = sw.cy + (bcx - sw.cx) * Math.tan(sw.angle);
+                if (b.vy >= 0 && b.y + b.h >= sy - 10 && b.y < sy + 20) {
+                    b.y = sy - b.h;
+                    b.vy = 0;
+                    torque += ((bcx - sw.cx) / sw.halfW) * 1.35;
+                    if (sw.angle > 0.05) {
+                        b.x += Math.sin(sw.angle) * 260 * dt;
+                    }
+                }
+            }
+        }
+        const locked = sw.lockColor && isColorActive(sw.lockColor);
+        if (!locked) {
+            sw.angle += (Math.max(-0.28, Math.min(0.28, torque * 0.35 - 0.14)) - sw.angle) * Math.min(1, 5 * dt);
+        }
+    }
+    for (const m of mushrooms) {
+        m.bounce = Math.max(0, m.bounce - dt * 4);
+        if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, m.x, m.y, m.w, m.h) && player.vy >= 0) {
+            player.y = m.y - player.r; player.vy = m.vy; player.grounded = false; m.bounce = 1; playTone(380, 'sine', 0.2, 0.15, 760);
+        }
+    }
+
+    for (const b of boxes) {
+        let boxFloat = false;
+        for (const w of winds) {
+            if (!w.active || !isColorActive(w.color)) continue;
+            if (rectOverlap(b.x, b.y, b.w, b.h, w.x, w.y, w.w, w.h)) {
+                if (w.vy < 0) { b.vy = Math.max(-240, (b.vy || 0) - 1150 * dt); boxFloat = true; }
+                if (w.vx !== 0) {
+                    b.x += w.vx * 0.42 * dt;
+                    for (const s of solids) {
+                        if (rectOverlap(b.x, b.y + 4, b.w, b.h - 8, s.x, s.y, s.w, s.h)) {
+                            b.x = w.vx > 0 ? s.x - b.w : s.x + s.w;
+                        }
+                    }
+                }
+            }
+        }
+        if (!boxFloat) b.vy = Math.min(600, (b.vy || 0) + 900 * dt);
+        b.y += b.vy * dt;
+        for (const m of mushrooms) if (rectOverlap(b.x, b.y, b.w, b.h, m.x, m.y, m.w, m.h) && b.vy >= 0) { b.y = m.y - b.h; b.vy = m.vy * 0.92; m.bounce = 1; }
+        for (const s of solids) {
+            if (rectOverlap(b.x + 2, b.y, b.w - 4, b.h, s.x, s.y, s.w, s.h) && b.vy >= 0 && b.y + b.h - b.vy * dt <= s.y + 12) {
+                b.y = s.y - b.h; b.vy = 0;
+            }
+        }
+    }
+    for (const btn of buttons) {
+        let active = btn.sticky && btn.pressed;
+        if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2 + 4, btn.x, btn.y - 8, btn.w, btn.h + 8)) active = true;
+        for (const ms of mossPlatforms) if (!ms.broken && rectOverlap(ms.x, ms.y, ms.w, ms.h + 6, btn.x, btn.y - 8, btn.w, btn.h + 8)) active = true;
+        for (const b of boxes) if (rectOverlap(b.x, b.y, b.w, b.h + 4, btn.x, btn.y - 8, btn.w, btn.h + 8)) active = true;
+        if (active && !btn.pressed) playTone(520, 'sine', 0.15, 0.12, 740);
+        btn.pressed = active;
+        if (btn.toggleWind) { for (const w of winds) if (w.id === btn.id) w.active = !btn.pressed; }
+        else for (const g of gates) if (g.id === btn.id) g.openH += ((btn.pressed ? g.h - 14 : 0) - g.openH) * Math.min(1, 6 * dt);
+    }
+
+    if (player.y > GAME_H + 80) hurtPlayer();
+    for (const h of hazards) {
+        const covered = ropeBridges.some(rb => rb.settled && rectOverlap(h.x + 4, h.y - 18, h.w - 8, 22, rb.x, rb.y, rb.w, rb.h));
+        if (!covered && rectOverlap(player.x - player.r + 6, player.y - player.r + 6, player.r * 2 - 12, player.r * 2 - 6, h.x, h.y, h.w, h.h)) hurtPlayer();
+    }
+    for (const z of zombies) {
+        if (z.dead) continue;
+        if (z.turnCooldown > 0) z.turnCooldown = Math.max(0, z.turnCooldown - dt);
+        const chase = Math.abs(player.y - (z.y - 24)) < 75 && Math.abs(player.x - z.x) < 340;
+        if (chase && z.turnCooldown <= 0 && Math.abs(player.x - z.x) > 12) {
+            z.dir = player.x < z.x ? -1 : 1;
+        }
+        const speed = (chase && z.turnCooldown <= 0) ? 85 : 52;
+        const nextX = z.x + z.dir * speed * dt;
+        const lookX = nextX + z.dir * 16;
+        const hasFloor = solids.some(s => lookX >= s.x && lookX <= s.x + s.w && Math.abs(s.y - z.y) < 10) ||
+            breakables.some(br => br.type === 'floor' && lookX >= br.x && lookX <= br.x + br.w && Math.abs(br.y - z.y) < 10);
+        const hitWall = solids.some(s => rectOverlap(nextX - 14, z.y - 46, 28, 40, s.x, s.y, s.w, s.h)) ||
+            breakables.some(br => br.type === 'wall' && rectOverlap(nextX - 14, z.y - 46, 28, 40, br.x, br.y, br.w, br.h));
+        if (hasFloor && !hitWall && nextX > minBound && nextX < maxBound) {
+            z.x = nextX;
         } else {
-            // Zurück auf sicheren Boden setzen
-            player.y = 200;
-            player.x = Math.max(80, player.x - 180);
-            player.vy = 0;
-            player.vx = 0;
-            player.invulnerable = 90;
+            z.dir *= -1;
+            z.turnCooldown = 0.75;
+        }
+        if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, z.x - 18, z.y - 48, 36, 48)) {
+            if (player.curled) { z.dead = true; if (player.vy > 0) player.vy = -300; playTone(190, 'square', 0.22, 0.16, 65); }
+            else hurtPlayer();
         }
     }
 
-    // Sammelobjekte prüfen
-    for (let item of collectibles) {
-        if (!item.collected) {
-            const itemBox = { x: item.x - 12, y: item.y - 12, w: 24, h: 24 };
-            if (checkRectCollision(player, itemBox)) {
-                item.collected = true;
-                let pts = 10;
-                let col = '#E53935';
-                if (item.type === 'berry') { pts = 25; col = '#8E24AA'; }
-                if (item.type === 'acorn') { pts = 50; col = '#FFD54F'; }
-                
-                score += pts;
-                updateHUD();
-                spawnParticles(item.x, item.y, col, 12);
-                spawnFloatingText(item.x, item.y - 10, `+${pts}`, col);
-            }
-        }
-    }
-
-    // Gegner aktualisieren & prüfen
-    for (let i = enemies.length - 1; i >= 0; i--) {
-        let e = enemies[i];
-        e.x += e.vx;
-        if (e.x <= e.minX || e.x + e.w >= e.maxX) {
-            e.vx *= -1;
-        }
-
-        if (checkRectCollision(player, e)) {
-            // Von oben auf Gegner gesprungen?
-            if (player.vy > 0 && player.y + player.height - player.vy <= e.y + 10) {
-                player.vy = -9.5; // Abprallen
-                score += 30;
-                updateHUD();
-                spawnParticles(e.x + e.w / 2, e.y + e.h / 2, '#FF7043', 15);
-                spawnFloatingText(e.x, e.y - 10, '+30', '#FFCC80');
-                enemies.splice(i, 1);
+    // Flug-Gegner (Wespen): nur durch gezielten Katapult-Schuss aus der Luft zu holen
+    for (const w of wasps) {
+        if (w.dead) continue;
+        w.phase += dt * 2.0;
+        w.x = w.baseX + Math.sin(w.phase) * w.rangeX;
+        w.y = w.baseY + Math.sin(w.phase * 2) * 14;
+        if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, w.x - 20, w.y - 16, 40, 32)) {
+            if (player.catapultFlight) {
+                w.dead = true;
+                player.vy = -300;
+                playTone(250, 'square', 0.22, 0.16, 75);
             } else {
-                damagePlayer();
+                hurtPlayer();
             }
         }
     }
 
-    // Ziel (Igeli-Bau) erreicht?
-    const goalBox = { x: goal.x + 15, y: goal.y + 15, w: goal.width - 30, h: goal.height - 15 };
-    if (checkRectCollision(player, goalBox)) {
-        endGame(true);
-        return;
-    }
+    // Marienkäfer mit Schild: vorne durch Schild geschützt, nur von oben (Sprung/Glasboden) besiegbar
+    for (const bt of beetles) {
+        if (bt.dead) continue;
+        const nextX = bt.x + bt.dir * 45 * dt;
+        const lookX = nextX + bt.dir * 22;
+        const hasFloor = solids.some(s => lookX >= s.x && lookX <= s.x + s.w && Math.abs(s.y - bt.y) < 10) ||
+            breakables.some(br => br.type === 'floor' && lookX >= br.x && lookX <= br.x + br.w && Math.abs(br.y - bt.y) < 10);
+        const hitWall = solids.some(s => rectOverlap(nextX - 18, bt.y - 36, 36, 32, s.x, s.y, s.w, s.h));
+        if (hasFloor && !hitWall && nextX > minBound && nextX < maxBound) bt.x = nextX; else bt.dir *= -1;
 
-    // Partikel & Schwebetexte aktualisieren
-    for (let i = particles.length - 1; i >= 0; i--) {
-        let p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vy += 0.25;
-        p.life -= 0.03;
-        if (p.life <= 0) particles.splice(i, 1);
-    }
-
-    for (let i = floatingTexts.length - 1; i >= 0; i--) {
-        let ft = floatingTexts[i];
-        ft.y -= 1.2;
-        ft.life -= 0.025;
-        if (ft.life <= 0) floatingTexts.splice(i, 1);
-    }
-
-    // Kamera folgt Igeli sanft
-    let targetCamX = player.x - GAME_WIDTH * 0.35;
-    targetCamX = Math.max(0, Math.min(targetCamX, LEVEL_LENGTH - GAME_WIDTH));
-    cameraX += (targetCamX - cameraX) * 0.1;
-}
-
-// ==========================================
-// ZEICHNEN (RENDERING)
-// ==========================================
-
-function draw() {
-    // Himmel-Farbverlauf
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
-    skyGrad.addColorStop(0, '#64B5F6');
-    skyGrad.addColorStop(0.6, '#B3E5FC');
-    skyGrad.addColorStop(1, '#E8F5E9');
-    ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-    // Sonne
-    ctx.fillStyle = 'rgba(255, 241, 118, 0.9)';
-    ctx.beginPath();
-    ctx.arc(680, 75, 42, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Ferne Hügel (Parallax)
-    ctx.fillStyle = '#A5D6A7';
-    for (let i = 0; i < 10; i++) {
-        let hx = i * 450 - (cameraX * 0.25);
-        ctx.beginPath();
-        ctx.arc(hx + 200, 420, 260, Math.PI, 0);
-        ctx.fill();
-    }
-
-    // Hintergrundelemente (Wolken, Bäume, Büsche)
-    for (let bg of backgroundElements) {
-        let parallaxFactor = bg.type === 'cloud' ? 0.3 : 0.7;
-        let drawX = bg.x - cameraX * parallaxFactor;
-        
-        if (drawX < -150 || drawX > GAME_WIDTH + 150) continue;
-
-        if (bg.type === 'cloud') {
-            drawCloud(drawX, bg.y, bg.scale);
-        } else if (bg.type === 'tree') {
-            drawTree(drawX, bg.y, bg.scale);
-        } else if (bg.type === 'bush') {
-            drawBush(drawX, bg.y, bg.scale);
+        if (rectOverlap(player.x - player.r, player.y - player.r, player.r * 2, player.r * 2, bt.x - 24, bt.y - 40, 48, 40)) {
+            const fromAbove = prevVy >= 0 && (player.y + player.r - prevVy * dt) <= bt.y - 24;
+            if (fromAbove) {
+                bt.dead = true;
+                player.vy = -330;
+                playTone(210, 'square', 0.22, 0.16, 65);
+            } else if (player.curled) {
+                const pushDir = player.x < bt.x ? -1 : 1;
+                player.x = bt.x + pushDir * (24 + player.r + 2);
+                player.vx = pushDir * 220;
+                playTone(300, 'triangle', 0.12, 0.14, 180);
+            } else {
+                hurtPlayer();
+            }
         }
     }
 
-    ctx.save();
-    ctx.translate(-cameraX, 0);
-
-    // Plattformen & Boden zeichnen
-    for (let p of platforms) {
-        if (p.x + p.w < cameraX - 50 || p.x > cameraX + GAME_WIDTH + 50) continue;
-
-        if (p.type === 'ground') {
-            // Erde
-            ctx.fillStyle = '#6D4C41';
-            ctx.fillRect(p.x, p.y, p.w, p.h);
-            // Grasdecke
-            ctx.fillStyle = '#4CAF50';
-            ctx.fillRect(p.x, p.y, p.w, 12);
-            ctx.fillStyle = '#81C784';
-            ctx.fillRect(p.x, p.y, p.w, 4);
-        } else {
-            // Holzplattform
-            ctx.fillStyle = '#8D6E63';
-            ctx.beginPath();
-            ctx.roundRect(p.x, p.y, p.w, p.h, 6);
-            ctx.fill();
-            ctx.strokeStyle = '#4E342E';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            // Moos oben drauf
-            ctx.fillStyle = '#66BB6A';
-            ctx.fillRect(p.x + 4, p.y, p.w - 8, 5);
-        }
+    // Unsichtbare Wände auch nach Kollisions- und Gegner-Rückstößen durchsetzen
+    if (player.x < minBound) { player.x = minBound; if (player.vx < 0) player.vx = 0; }
+    if (player.x > maxBound) { player.x = maxBound; if (player.vx > 0) player.vx = 0; }
+    for (const b of boxes) {
+        if (b.x < minBound - player.r) b.x = minBound - player.r;
+        if (b.x + b.w > maxBound + player.r) b.x = maxBound + player.r - b.w;
     }
 
-    // Ziel: Gemütlicher Blätter- & Holzhaufen-Bau
-    drawGoal(goal.x, goal.y);
-
-    // Sammelobjekte zeichnen
-    const bounce = Math.sin(Date.now() * 0.005) * 4;
-    for (let item of collectibles) {
-        if (item.collected) continue;
-        if (item.x < cameraX - 50 || item.x > cameraX + GAME_WIDTH + 50) continue;
-
-        drawCollectible(item.x, item.y + bounce, item.type);
+    if (player.x >= goalX) {
+        playTone(440, 'triangle', 0.35, 0.18, 880);
+        if (state.levelIndex + 1 >= MAX_LEVELS) { state.won = true; }
+        else { state.levelIndex++; loadLevel(state.levelIndex, true); }
     }
-
-    // Gegner zeichnen
-    for (let e of enemies) {
-        if (e.x + e.w < cameraX - 50 || e.x > cameraX + GAME_WIDTH + 50) continue;
-        drawEnemy(e);
-    }
-
-    // Spieler (Igeli) zeichnen
-    if (player.invulnerable === 0 || Math.floor(player.invulnerable / 5) % 2 === 0) {
-        drawIgeli(player);
-    }
-
-    // Partikel zeichnen
-    for (let p of particles) {
-        ctx.globalAlpha = Math.max(0, p.life);
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    ctx.globalAlpha = 1.0;
-
-    // Schwebende Punktetexte zeichnen
-    ctx.font = "bold 18px 'Segoe UI', sans-serif";
-    ctx.textAlign = "center";
-    for (let ft of floatingTexts) {
-        ctx.globalAlpha = Math.max(0, ft.life);
-        ctx.fillStyle = "#3E2723";
-        ctx.fillText(ft.text, ft.x + 1, ft.y + 1);
-        ctx.fillStyle = ft.color;
-        ctx.fillText(ft.text, ft.x, ft.y);
-    }
-    ctx.globalAlpha = 1.0;
-
-    ctx.restore();
+    player.rot += (player.vx * dt) / player.r;
+    state.camX += (Math.max(0, player.x - GAME_W * 0.42) - state.camX) * Math.min(1, 7 * dt);
 }
 
-// ==========================================
-// HILFSFUNKTIONEN FÜR GRAFIKEN
-// ==========================================
-
-function drawCloud(x, y, s) {
-    // Wolken-Bäusche mit separaten Pfaden (verhindert Dreiecks-Artefakte)
-    const puffs = [
-        { dx: -22 * s, dy: 4 * s, r: 17 * s },
-        { dx: -4 * s, dy: -6 * s, r: 24 * s },
-        { dx: 22 * s, dy: -11 * s, r: 28 * s },
-        { dx: 48 * s, dy: -3 * s, r: 22 * s },
-        { dx: 66 * s, dy: 6 * s, r: 15 * s }
-    ];
-
-    // 1. Sanfter Schatten an der Unterseite der Wolke
-    ctx.fillStyle = "rgba(195, 224, 245, 0.85)";
-    ctx.beginPath();
-    ctx.roundRect(x - 36 * s, y + 6 * s, 114 * s, 18 * s, 10 * s);
-    for (const p of puffs) {
-        ctx.moveTo(x + p.dx + p.r, y + p.dy + 4 * s);
-        ctx.arc(x + p.dx, y + p.dy + 4 * s, p.r, 0, Math.PI * 2);
-    }
-    ctx.fill();
-
-    // 2. Hauptkörper der Wolke (flache Basis + weiche Kuppen)
-    ctx.fillStyle = "rgba(255, 255, 255, 0.94)";
-    ctx.beginPath();
-    ctx.roundRect(x - 35 * s, y + 2 * s, 112 * s, 18 * s, 10 * s);
-    for (const p of puffs) {
-        ctx.moveTo(x + p.dx + p.r, y + p.dy);
-        ctx.arc(x + p.dx, y + p.dy, p.r, 0, Math.PI * 2);
-    }
-    ctx.fill();
-
-    // 3. Zarter Sonnenglanz auf den oberen Kuppen
-    ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
-    ctx.beginPath();
-    ctx.moveTo(x - 4 * s + 16 * s, y - 9 * s);
-    ctx.arc(x - 4 * s, y - 9 * s, 16 * s, 0, Math.PI * 2);
-    ctx.moveTo(x + 22 * s + 19 * s, y - 14 * s);
-    ctx.arc(x + 22 * s, y - 14 * s, 19 * s, 0, Math.PI * 2);
-    ctx.fill();
+loadLevel(0, true);
+let lastTime = performance.now();
+function loop(now) {
+    const dt = Math.min(0.033, (now - lastTime) / 1000);
+    lastTime = now;
+    update(dt); render();
+    requestAnimationFrame(loop);
 }
-
-function drawTree(x, y, s) {
-    // 1. Baumstamm (leicht verjüngt mit Wurzelansatz)
-    ctx.fillStyle = "#5D4037";
-    ctx.beginPath();
-    ctx.moveTo(x - 13 * s, y);
-    ctx.lineTo(x - 8 * s, y - 82 * s);
-    ctx.lineTo(x + 8 * s, y - 82 * s);
-    ctx.lineTo(x + 13 * s, y);
-    ctx.closePath();
-    ctx.fill();
-
-    // Dunklere Rindenschattierung rechts am Stamm
-    ctx.fillStyle = "#4E342E";
-    ctx.beginPath();
-    ctx.moveTo(x + 2 * s, y);
-    ctx.lineTo(x + 1 * s, y - 82 * s);
-    ctx.lineTo(x + 8 * s, y - 82 * s);
-    ctx.lineTo(x + 13 * s, y);
-    ctx.closePath();
-    ctx.fill();
-
-    // Kleine Äste in die Krone hinein
-    ctx.strokeStyle = "#5D4037";
-    ctx.lineWidth = 5 * s;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(x - 4 * s, y - 62 * s);
-    ctx.lineTo(x - 22 * s, y - 78 * s);
-    ctx.moveTo(x + 4 * s, y - 68 * s);
-    ctx.lineTo(x + 20 * s, y - 82 * s);
-    ctx.stroke();
-
-    // Hilfsfunktion zum Zeichnen mehrerer Blatt-Bäusche ohne Verbindungslinien
-    const drawCanopyCluster = (clusters, color) => {
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        for (const c of clusters) {
-            ctx.moveTo(x + c.dx + c.r, y + c.dy);
-            ctx.arc(x + c.dx, y + c.dy, c.r, 0, Math.PI * 2);
-        }
-        ctx.fill();
-    };
-
-    // 2. Hintere Schatten-Ebene der Baumkrone (Tiefe)
-    drawCanopyCluster([
-        { dx: -30 * s, dy: -76 * s, r: 26 * s },
-        { dx: 30 * s, dy: -76 * s, r: 26 * s },
-        { dx: 0 * s, dy: -72 * s, r: 30 * s },
-        { dx: -22 * s, dy: -102 * s, r: 28 * s },
-        { dx: 22 * s, dy: -102 * s, r: 28 * s }
-    ], "#2E7D32");
-
-    // 3. Haupt-Blattwerk (sattes Grün)
-    drawCanopyCluster([
-        { dx: 0 * s, dy: -116 * s, r: 33 * s },
-        { dx: -28 * s, dy: -90 * s, r: 27 * s },
-        { dx: 28 * s, dy: -90 * s, r: 27 * s },
-        { dx: -14 * s, dy: -82 * s, r: 25 * s },
-        { dx: 15 * s, dy: -82 * s, r: 25 * s },
-        { dx: 0 * s, dy: -98 * s, r: 30 * s }
-    ], "#43A047");
-
-    // 4. Sonnenbeschienene Blatt-Kuppen (oben links für 3D-Plastizität)
-    drawCanopyCluster([
-        { dx: -6 * s, dy: -124 * s, r: 22 * s },
-        { dx: -31 * s, dy: -96 * s, r: 18 * s },
-        { dx: 16 * s, dy: -108 * s, r: 17 * s },
-        { dx: -14 * s, dy: -94 * s, r: 16 * s }
-    ], "#66BB6A");
-
-    // 5. Feine Glanzlichter auf der Krone
-    drawCanopyCluster([
-        { dx: -10 * s, dy: -129 * s, r: 11 * s },
-        { dx: -34 * s, dy: -100 * s, r: 9 * s }
-    ], "#81C784");
-}
-
-function drawBush(x, y, s) {
-    ctx.fillStyle = "#4CAF50";
-    ctx.beginPath();
-    ctx.arc(x, y - 15 * s, 20 * s, 0, Math.PI * 2);
-    ctx.arc(x - 18 * s, y - 10 * s, 15 * s, 0, Math.PI * 2);
-    ctx.arc(x + 18 * s, y - 10 * s, 15 * s, 0, Math.PI * 2);
-    ctx.fill();
-}
-
-function drawGoal(x, y) {
-    // Blätterhaufen-Höhle
-    ctx.fillStyle = "#E65100";
-    ctx.beginPath();
-    ctx.arc(x + 40, y + 80, 45, Math.PI, 0);
-    ctx.fill();
-
-    ctx.fillStyle = "#FFB300";
-    ctx.beginPath();
-    ctx.arc(x + 25, y + 75, 25, Math.PI, 0);
-    ctx.arc(x + 55, y + 75, 25, Math.PI, 0);
-    ctx.fill();
-
-    // Höhleneingang
-    ctx.fillStyle = "#3E2723";
-    ctx.beginPath();
-    ctx.arc(x + 40, y + 80, 22, Math.PI, 0);
-    ctx.fill();
-
-    // Kleines Schild "ZUHAUSE"
-    ctx.fillStyle = "#5D4037";
-    ctx.fillRect(x - 15, y + 40, 6, 40);
-    ctx.fillStyle = "#D7CCC8";
-    ctx.fillRect(x - 32, y + 28, 42, 18);
-    ctx.fillStyle = "#3E2723";
-    ctx.font = "bold 9px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("BAU", x - 11, y + 40);
-}
-
-function drawCollectible(x, y, type) {
-    if (type === 'apple') {
-        // Roter Apfel
-        ctx.fillStyle = "#E53935";
-        ctx.beginPath();
-        ctx.arc(x, y, 10, 0, Math.PI * 2);
-        ctx.fill();
-        // Glanzpunkt
-        ctx.fillStyle = "#FFCDD2";
-        ctx.beginPath();
-        ctx.arc(x - 3, y - 3, 3, 0, Math.PI * 2);
-        ctx.fill();
-        // Blatt
-        ctx.fillStyle = "#43A047";
-        ctx.beginPath();
-        ctx.ellipse(x + 3, y - 10, 5, 3, -0.5, 0, Math.PI * 2);
-        ctx.fill();
-    } else if (type === 'berry') {
-        // Lila Waldbeeren-Traube
-        ctx.fillStyle = "#8E24AA";
-        ctx.beginPath();
-        ctx.arc(x - 4, y, 6, 0, Math.PI * 2);
-        ctx.arc(x + 4, y, 6, 0, Math.PI * 2);
-        ctx.arc(x, y + 6, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#43A047";
-        ctx.fillRect(x - 2, y - 9, 4, 5);
-    } else if (type === 'acorn') {
-        // Goldene Eichel
-        ctx.fillStyle = "#FFD54F";
-        ctx.beginPath();
-        ctx.ellipse(x, y + 2, 8, 10, 0, 0, Math.PI * 2);
-        ctx.fill();
-        // Kappe
-        ctx.fillStyle = "#795548";
-        ctx.beginPath();
-        ctx.arc(x, y - 4, 9, Math.PI, 0);
-        ctx.fill();
-        ctx.fillRect(x - 1.5, y - 16, 3, 5);
-    }
-}
-
-function drawEnemy(e) {
-    const cx = e.x + e.w / 2;
-    const cy = e.y + e.h / 2;
-
-    // Stacheliger Krabbelkäfer
-    ctx.fillStyle = "#37474F";
-    ctx.beginPath();
-    ctx.arc(cx, cy + 4, 15, Math.PI, 0);
-    ctx.fill();
-
-    // Stacheln auf dem Panzer
-    ctx.fillStyle = "#FF5252";
-    for (let a = -0.8; a <= 0.8; a += 0.4) {
-        let sx = cx + Math.sin(a) * 14;
-        let sy = cy + 4 - Math.cos(a) * 14;
-        ctx.beginPath();
-        ctx.moveTo(sx - 3, sy);
-        ctx.lineTo(sx + Math.sin(a) * 7, sy - Math.cos(a) * 7);
-        ctx.lineTo(sx + 3, sy);
-        ctx.fill();
-    }
-
-    // Böse Augen
-    let lookDir = e.vx > 0 ? 5 : -5;
-    ctx.fillStyle = "#FFF";
-    ctx.beginPath();
-    ctx.arc(cx + lookDir, cy, 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#D50000";
-    ctx.beginPath();
-    ctx.arc(cx + lookDir + (e.vx > 0 ? 1 : -1), cy, 2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Füßchen
-    const step = Math.sin(Date.now() * 0.02) * 3;
-    ctx.strokeStyle = "#263238";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(cx - 8, cy + 4); ctx.lineTo(cx - 8 + step, cy + 14);
-    ctx.moveTo(cx + 8, cy + 4); ctx.lineTo(cx + 8 - step, cy + 14);
-    ctx.stroke();
-}
-
-function drawIgeli(p) {
-    ctx.save();
-    const cx = p.x + p.width / 2;
-    const cy = p.y + p.height / 2;
-    ctx.translate(cx, cy);
-    if (!p.facingRight) ctx.scale(-1, 1);
-
-    // Füßchen (animiert beim Laufen)
-    const footOffset = Math.sin(p.walkCycle) * 5;
-    ctx.fillStyle = "#5D4037";
-    ctx.beginPath();
-    ctx.ellipse(-6 + footOffset, 12, 5, 3.5, 0, 0, Math.PI * 2);
-    ctx.ellipse(8 - footOffset, 12, 5, 3.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Stachelkleid (Hintergrund)
-    ctx.fillStyle = "#4E342E";
-    ctx.beginPath();
-    ctx.arc(-4, 2, 16, Math.PI * 0.85, Math.PI * 2.15);
-    ctx.fill();
-
-    // Einzelne Stachelspitzen
-    ctx.fillStyle = "#3E2723";
-    for (let angle = Math.PI * 0.9; angle <= Math.PI * 1.95; angle += 0.25) {
-        let sx = -4 + Math.cos(angle) * 15;
-        let sy = 2 + Math.sin(angle) * 15;
-        ctx.beginPath();
-        ctx.moveTo(sx, sy - 3);
-        ctx.lineTo(sx + Math.cos(angle) * 7, sy + Math.sin(angle) * 7);
-        ctx.lineTo(sx + 3, sy + 2);
-        ctx.fill();
-    }
-
-    // Bauch & Gesicht (hellbraun/beige)
-    ctx.fillStyle = "#D7CCC8";
-    ctx.beginPath();
-    ctx.ellipse(6, 5, 14, 10, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Spitze Schnauze
-    ctx.beginPath();
-    ctx.moveTo(12, -1);
-    ctx.lineTo(24, 5);
-    ctx.lineTo(12, 11);
-    ctx.fill();
-
-    // Schwarze Stupsnase
-    ctx.fillStyle = "#212121";
-    ctx.beginPath();
-    ctx.arc(24, 5, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Niedliches Auge
-    ctx.fillStyle = "#212121";
-    ctx.beginPath();
-    ctx.arc(13, 1, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-    // Lichtreflex im Auge
-    ctx.fillStyle = "#FFF";
-    ctx.beginPath();
-    ctx.arc(13.8, 0.2, 0.9, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Kleines rundes Ohr
-    ctx.fillStyle = "#BCAAA4";
-    ctx.beginPath();
-    ctx.arc(5, -4, 4, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-}
-
-// ==========================================
-// HAUPTSCHLEIFE (GAME LOOP)
-// ==========================================
-
-function gameLoop(timestamp) {
-    if (!lastTime) lastTime = timestamp;
-    const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
-    lastTime = timestamp;
-
-    update(dt);
-    draw();
-
-    requestAnimationFrame(gameLoop);
-}
-
-// Start / Neustart Button Events
-function startGame() {
-    startScreen.classList.add('hidden');
-    gameOverScreen.classList.add('hidden');
-    winScreen.classList.add('hidden');
-    hud.classList.remove('hidden');
-    
-    // Touch-Steuerung nur auf Touch-Geräten oder schmalen Bildschirmen zeigen
-    if ('ontouchstart' in window || window.innerWidth <= 850) {
-        touchControls.classList.remove('hidden');
-    }
-
-    initLevel();
-    gameState = 'PLAYING';
-    lastTime = performance.now();
-}
-
-document.getElementById('startBtn').addEventListener('click', startGame);
-document.getElementById('restartLostBtn').addEventListener('click', startGame);
-document.getElementById('restartWinBtn').addEventListener('click', startGame);
-
-// Initiales Hintergrundbild zeichnen & Loop starten
-initLevel();
-requestAnimationFrame(gameLoop);
+requestAnimationFrame(loop);

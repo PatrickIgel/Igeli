@@ -1,4 +1,67 @@
 // Hintergrund (Himmel, Parallax-Wolken, Bäume, Hügel)
+function traceCloudUnionPath(puffs, baseY) {
+    // Berechnet die exakten äußeren Schnittpunkte benachbarter Wolkenkreise,
+    // damit ctx.stroke() nur die äußere Silhouette ohne innere Dreiecke zeichnet.
+    const pts = [];
+    for (let j = 0; j < puffs.length - 1; j++) {
+        const a = puffs[j], b = puffs[j + 1];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const d = Math.hypot(dx, dy);
+        const l = (a.r * a.r - b.r * b.r + d * d) / (2 * d);
+        const h = Math.sqrt(Math.max(0, a.r * a.r - l * l));
+        const mx = a.x + (l * dx) / d;
+        const my = a.y + (l * dy) / d;
+        // Oberer Schnittpunkt (kleineres y)
+        const ix1 = mx + (h * dy) / d, iy1 = my - (h * dx) / d;
+        const ix2 = mx - (h * dy) / d, iy2 = my + (h * dx) / d;
+        pts.push(iy1 < iy2 ? { x: ix1, y: iy1 } : { x: ix2, y: iy2 });
+    }
+    const first = puffs[0], last = puffs[puffs.length - 1];
+    const startAng = Math.asin(Math.max(-1, Math.min(1, (baseY - first.y) / first.r)));
+    const endAng = Math.PI - Math.asin(Math.max(-1, Math.min(1, (baseY - last.y) / last.r)));
+
+    ctx.beginPath();
+    for (let j = 0; j < puffs.length; j++) {
+        const c = puffs[j];
+        const a0 = j === 0 ? (Math.PI - startAng) : Math.atan2(pts[j - 1].y - c.y, pts[j - 1].x - c.x);
+        const a1 = j === puffs.length - 1 ? (Math.PI - endAng) : Math.atan2(pts[j].y - c.y, pts[j].x - c.x);
+        if (j === 0) ctx.arc(c.x, c.y, c.r, a0, a1, false);
+        else ctx.arc(c.x, c.y, c.r, a0, a1, false);
+    }
+    ctx.quadraticCurveTo((first.x + last.x) * 0.5, baseY + 5, first.x + Math.cos(Math.PI - startAng) * first.r, baseY);
+    ctx.closePath();
+}
+
+function traceCrownUnionPath(puffs) {
+    // Berechnet die geschlossene äußere Kontur aller Kronen-Bäusche im Uhrzeigersinn
+    const n = puffs.length;
+    const pts = [];
+    for (let j = 0; j < n; j++) {
+        const a = puffs[j], b = puffs[(j + 1) % n];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const d = Math.hypot(dx, dy);
+        const l = (a.r * a.r - b.r * b.r + d * d) / (2 * d);
+        const h = Math.sqrt(Math.max(0, a.r * a.r - l * l));
+        const mx = a.x + (l * dx) / d;
+        const my = a.y + (l * dy) / d;
+        // Äußerer Schnittpunkt (rechts der Bewegungsrichtung a -> b im Canvas-Koordinatensystem)
+        const ix1 = mx + (h * dy) / d, iy1 = my - (h * dx) / d;
+        const ix2 = mx - (h * dy) / d, iy2 = my + (h * dx) / d;
+        const cross1 = dx * (iy1 - a.y) - dy * (ix1 - a.x);
+        pts.push(cross1 < 0 ? { x: ix1, y: iy1 } : { x: ix2, y: iy2 });
+    }
+    ctx.beginPath();
+    for (let j = 0; j < n; j++) {
+        const c = puffs[j];
+        const prevPt = pts[(j - 1 + n) % n];
+        const nextPt = pts[j];
+        const a0 = Math.atan2(prevPt.y - c.y, prevPt.x - c.x);
+        const a1 = Math.atan2(nextPt.y - c.y, nextPt.x - c.x);
+        ctx.arc(c.x, c.y, c.r, a0, a1, false);
+    }
+    ctx.closePath();
+}
+
 function renderBackground(viewBounds) {
     const minX = (viewBounds ? viewBounds.minX : 0) - 20;
     const maxX = (viewBounds ? viewBounds.maxX : GAME_W) + 20;
@@ -19,20 +82,57 @@ function renderBackground(viewBounds) {
         ctx.fillRect(minX, GAME_H - 2, spanW, maxY - GAME_H + 4);
     }
 
-    ctx.lineWidth = 4; ctx.strokeStyle = '#0d0f12';
+    // Parallax-Wolken (ohne innere Dreiecks-Linien, mit sanfter Schattierung & Glanzlicht)
+    ctx.lineWidth = 4; ctx.strokeStyle = '#0d0f12'; ctx.lineJoin = 'round';
     const cloudStep = 290;
     const firstCloud = Math.floor((minX - 120 + state.camX * 0.1 - 90) / cloudStep);
     const lastCloud = Math.ceil((maxX + 120 + state.camX * 0.1 - 90) / cloudStep);
     for (let i = firstCloud; i <= lastCloud; i++) {
         const cx = i * cloudStep + 90 - state.camX * 0.1;
         const cy = 75 + (((i % 3) + 3) % 3) * 48;
-        ctx.fillStyle = '#ffffff'; ctx.beginPath();
-        ctx.arc(cx, cy, 24, Math.PI * 0.5, Math.PI * 1.5); ctx.arc(cx + 26, cy - 14, 30, Math.PI, Math.PI * 1.85);
-        ctx.arc(cx + 58, cy - 6, 26, Math.PI * 1.15, Math.PI * 1.95); ctx.arc(cx + 76, cy + 4, 20, Math.PI * 1.5, Math.PI * 0.5);
-        ctx.closePath(); ctx.fill(); ctx.stroke();
+        const puffs = [
+            { x: cx, y: cy + 2, r: 21 },
+            { x: cx + 23, y: cy - 11, r: 28 },
+            { x: cx + 53, y: cy - 13, r: 29 },
+            { x: cx + 79, y: cy + 1, r: 21 }
+        ];
+        const baseY = cy + 16;
+
+        traceCloudUnionPath(puffs, baseY);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+
+        // Sanfter bläulicher Schatten an der Wolken-Unterseite (innerhalb der Wolke geclippt)
+        ctx.save();
+        ctx.clip();
+        ctx.fillStyle = '#dbeafe';
+        ctx.fillRect(cx - 30, baseY - 9, 140, 20);
+        ctx.restore();
+
+        // Feine Glanzlichter auf den oberen Wolkenkuppen
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.lineWidth = 3.5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(cx + 23, cy - 11, 20, Math.PI * 1.15, Math.PI * 1.62);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx + 53, cy - 13, 21, Math.PI * 1.2, Math.PI * 1.68);
+        ctx.stroke();
+
+        // Saubere äußere Kontur
+        ctx.strokeStyle = '#0d0f12';
+        ctx.lineWidth = 4;
+        traceCloudUnionPath(puffs, baseY);
+        ctx.stroke();
     }
 
-    const treeCols = ['#d95338', '#e67e22', '#c83e2b'];
+    // Parallax-Bäume (mehrschichtige, plastische Baumkronen & detaillierte Stämme)
+    const treePalettes = [
+        { base: '#d95338', dark: '#a83822', light: '#f07b62', rim: '#f8a593' },
+        { base: '#e67e22', dark: '#b85d14', light: '#f5a342', rim: '#fbd08d' },
+        { base: '#c83e2b', dark: '#96281b', light: '#e36452', rim: '#f49c90' }
+    ];
     const treeStep = 240;
     const firstTree = Math.floor((minX - 100 + state.camX * 0.22) / treeStep);
     const lastTree = Math.ceil((maxX + 100 + state.camX * 0.22) / treeStep);
@@ -40,11 +140,110 @@ function renderBackground(viewBounds) {
         const tx = i * treeStep - state.camX * 0.22;
         const mod3 = ((i % 3) + 3) % 3;
         const mod2 = ((i % 2) + 2) % 2;
-        const hillY = 445 + Math.sin((tx + state.camX * 0.15) * 0.004) * 35, crownY = hillY - 115 - mod2 * 18;
-        ctx.fillStyle = '#5c3a21'; ctx.fillRect(tx - 14, crownY + 20, 28, groundBottom - crownY); ctx.strokeRect(tx - 14, crownY + 20, 28, groundBottom - crownY);
-        ctx.fillStyle = treeCols[mod3]; ctx.beginPath();
-        ctx.arc(tx - 32, crownY + 12, 34, Math.PI * 0.45, Math.PI * 1.65); ctx.arc(tx, crownY - 18, 42, Math.PI * 0.95, Math.PI * 2.05);
-        ctx.arc(tx + 32, crownY + 12, 34, Math.PI * 1.35, Math.PI * 0.55); ctx.closePath(); ctx.fill(); ctx.stroke();
+        const pal = treePalettes[mod3];
+        const hillY = 445 + Math.sin((tx + state.camX * 0.15) * 0.004) * 35;
+        const crownY = hillY - 118 - mod2 * 18;
+
+        // 1. Leicht verjüngter Baumstamm mit Rindenschattierung & Ästen
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#0d0f12';
+        ctx.lineJoin = 'round';
+        ctx.fillStyle = '#5c3a21';
+        ctx.beginPath();
+        ctx.moveTo(tx - 17, groundBottom);
+        ctx.lineTo(tx - 11, crownY + 18);
+        ctx.lineTo(tx + 11, crownY + 18);
+        ctx.lineTo(tx + 17, groundBottom);
+        ctx.closePath();
+        ctx.fill();
+
+        // Dunklere Rindenseite rechts & heller Streifen links
+        ctx.save();
+        ctx.clip();
+        ctx.fillStyle = '#3d2514';
+        ctx.fillRect(tx + 2, crownY + 15, 20, groundBottom - crownY);
+        ctx.fillStyle = '#7c5338';
+        ctx.fillRect(tx - 11, crownY + 15, 6, groundBottom - crownY);
+        ctx.restore();
+
+        // Stamm-Kontur
+        ctx.beginPath();
+        ctx.moveTo(tx - 17, groundBottom);
+        ctx.lineTo(tx - 11, crownY + 18);
+        ctx.lineTo(tx + 11, crownY + 18);
+        ctx.lineTo(tx + 17, groundBottom);
+        ctx.closePath();
+        ctx.stroke();
+
+        // Zwei kleine Äste, die in die Krone ragen
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(tx - 6, crownY + 34);
+        ctx.lineTo(tx - 24, crownY + 18);
+        ctx.moveTo(tx + 6, crownY + 29);
+        ctx.lineTo(tx + 23, crownY + 14);
+        ctx.stroke();
+
+        // 2. Mehrschichtige Baumkrone (im Uhrzeigersinn für saubere Außenkontur)
+        const crownPuffs = [
+            { x: tx - 35, y: crownY + 14, r: 26 },
+            { x: tx - 31, y: crownY - 13, r: 27 },
+            { x: tx,      y: crownY - 27, r: 34 },
+            { x: tx + 31, y: crownY - 13, r: 27 },
+            { x: tx + 35, y: crownY + 14, r: 26 },
+            { x: tx + 13, y: crownY + 25, r: 24 },
+            { x: tx - 13, y: crownY + 25, r: 24 }
+        ];
+
+        traceCrownUnionPath(crownPuffs);
+        ctx.fillStyle = pal.base;
+        ctx.fill();
+
+        // Innere Tiefe: Schatten unten/rechts & sonnenbeschienene Laub-Bäusche oben links
+        ctx.save();
+        ctx.clip();
+
+        // Schatten-Bäusche unten
+        ctx.fillStyle = pal.dark;
+        ctx.beginPath();
+        ctx.arc(tx + 26, crownY + 22, 30, 0, Math.PI * 2);
+        ctx.arc(tx - 4, crownY + 31, 32, 0, Math.PI * 2);
+        ctx.arc(tx - 32, crownY + 22, 26, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Mittlere Laub-Bäusche
+        ctx.fillStyle = pal.base;
+        ctx.beginPath();
+        ctx.arc(tx - 24, crownY - 2, 25, 0, Math.PI * 2);
+        ctx.arc(tx + 22, crownY - 4, 24, 0, Math.PI * 2);
+        ctx.arc(tx + 2, crownY + 6, 26, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Sonnenbeschienene Laub-Kuppen oben links
+        ctx.fillStyle = pal.light;
+        ctx.beginPath();
+        ctx.arc(tx - 6, crownY - 24, 26, 0, Math.PI * 2);
+        ctx.arc(tx - 29, crownY - 12, 20, 0, Math.PI * 2);
+        ctx.arc(tx + 20, crownY - 15, 18, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Feine Glanz-Bögen (passend zum Zeichenstil von Igel & Marienkäfer)
+        ctx.strokeStyle = pal.rim;
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(tx - 2, crownY - 25, 24, Math.PI * 1.15, Math.PI * 1.62);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(tx - 30, crownY - 12, 19, Math.PI * 1.1, Math.PI * 1.55);
+        ctx.stroke();
+
+        ctx.restore();
+
+        // Saubere schwarze Außenkontur der Baumkrone
+        ctx.strokeStyle = '#0d0f12';
+        ctx.lineWidth = 4;
+        traceCrownUnionPath(crownPuffs);
+        ctx.stroke();
     }
 
     const hillStartX = Math.floor((minX - 80) / 40) * 40;
