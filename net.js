@@ -1,7 +1,7 @@
 // Netzwerk-Status & PeerJS-Konfiguration
 let netMode = 'local'; // 'local' | 'host' | 'client'
 let peer = null, conn = null;
-let hostSendTimer = null, clientInputTimer = null, connectTimeout = null, pingTimer = null;
+let hostSendTimer = null, clientInputTimer = null, connectTimeout = null;
 let roomCode = '';
 let netTarget = null;
 let hasReceivedInitialState = false;
@@ -11,31 +11,11 @@ let jumpPressCount = 0, lastRemoteJumpCount = 0;
 let isConnecting = false;
 let lastSentBlue = { blueJump: false, blueLeft: false, blueAct: false };
 
-const FALLBACK_ICE_SERVERS = [
+const METERED_TURN_URL = 'https://igelgame.metered.live/api/v1/turn/credentials?apiKey=d4848105067eefae8ec2d7063773a62f4c30';
+const STUN_FALLBACK_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun.relay.metered.ca:80' },
-    {
-        urls: 'turn:openrelay.metered.ca:80',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-    },
-    {
-        urls: 'turn:openrelay.metered.ca:80?transport=tcp',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-    },
-    {
-        urls: 'turn:openrelay.metered.ca:443',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-    },
-    {
-        urls: 'turns:openrelay.metered.ca:443?transport=tcp',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-    }
+    { urls: 'stun:stun2.l.google.com:19302' }
 ];
 
 let cachedIceServers = null;
@@ -45,16 +25,13 @@ async function getPeerConfig() {
         try {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 4000);
-            const res = await fetch('https://openrelay.metered.ca/api/v1/turn/credentials?apiKey=openrelayproject', {
-                signal: controller.signal
-            });
+            const res = await fetch(METERED_TURN_URL, { signal: controller.signal });
             clearTimeout(timer);
             if (res.ok) {
                 const servers = await res.json();
                 if (Array.isArray(servers) && servers.length > 0) {
                     cachedIceServers = [
                         { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' },
                         ...servers
                     ];
                 }
@@ -65,7 +42,7 @@ async function getPeerConfig() {
         pingInterval: 5000,
         config: {
             iceCandidatePoolSize: 6,
-            iceServers: cachedIceServers || FALLBACK_ICE_SERVERS
+            iceServers: cachedIceServers || STUN_FALLBACK_SERVERS
         }
     };
 }
@@ -286,7 +263,6 @@ function cleanupPeer() {
     if (hostSendTimer) { clearInterval(hostSendTimer); hostSendTimer = null; }
     if (clientInputTimer) { clearInterval(clientInputTimer); clientInputTimer = null; }
     if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
-    if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
     if (conn) { try { conn.close(); } catch (e) {} conn = null; }
     if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
     activePointers.clear();
@@ -401,6 +377,9 @@ async function startHostSession() {
             remoteInputs.blueLeft = false;
             remoteInputs.blueAct = false;
             remoteJumpPulse = false;
+            if (!hostStarted && peer === currentPeer) {
+                hostStatus.textContent = 'Warte auf Spieler 2 (Blau)...';
+            }
         });
 
         if (c.open) activateHost();
