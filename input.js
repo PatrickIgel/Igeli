@@ -6,7 +6,37 @@ const controlButtons = [
     { id: 'blueJump', x: 1035, y: 620, r: 48, hitR: 62, color: '#20b8f9', label: 'SPRUNG', sub: 'Katapult' },
     { id: 'blueLeft', x: 1165, y: 620, r: 48, hitR: 62, color: '#20b8f9', label: 'LINKS',  sub: 'Laufen' }
 ];
-const uiButtons = { resetRoom: { x: GAME_W / 2 - 90, y: GAME_H - 52, w: 180, h: 40 }, sound: { x: GAME_W - 68, y: 14, w: 52, h: 42 } };
+const uiButtons = {
+    resetRoom: { x: GAME_W / 2 - 90, y: GAME_H - 52, w: 180, h: 40 },
+    sound: { x: GAME_W - 68, y: 14, w: 52, h: 42 },
+    fullscreen: { x: GAME_W - 130, y: 14, w: 52, h: 42 }
+};
+
+function isFullscreenActive() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function toggleFullscreen() {
+    const el = document.documentElement;
+    if (!isFullscreenActive()) {
+        const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+        if (req) {
+            Promise.resolve(req.call(el)).then(() => {
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(() => {});
+                }
+            }).catch(() => {});
+        }
+    } else {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+        if (exit) Promise.resolve(exit.call(document)).catch(() => {});
+    }
+}
+
+const btnFullscreenMenu = document.getElementById('btnFullscreenMenu');
+if (btnFullscreenMenu) {
+    btnFullscreenMenu.addEventListener('click', toggleFullscreen);
+}
 
 function getVisibleControlButtons() {
     if (netMode === 'host') return controlButtons.filter(b => b.id.startsWith('red'));
@@ -29,6 +59,7 @@ const hitRect = (p, r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <=
 
 canvas.addEventListener('pointerdown', e => {
     const pt = toGameCoords(e.clientX, e.clientY);
+    if (hitRect(pt, uiButtons.fullscreen)) { toggleFullscreen(); return; }
     if (hitRect(pt, uiButtons.sound)) { soundOn = !soundOn; return; }
     if (state.won || state.gameOver || hitRect(pt, uiButtons.resetRoom)) {
         if (netMode === 'client') {

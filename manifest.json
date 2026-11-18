@@ -1,0 +1,19 @@
+{
+  "name": "Igelis Reise – Das Abenteuer und Rätselspiel",
+  "short_name": "Igelis Reise",
+  "description": "Kooperatives Abenteuer- und Rätselspiel mit Igeli.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#2b2f36",
+  "theme_color": "#0d0f12",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%232b2f36'/%3E%3Ccircle cx='256' cy='270' r='150' fill='%236b4423' stroke='%230d0f12' stroke-width='20'/%3E%3Ccircle cx='285' cy='285' r='105' fill='%23f5d0a9'/%3E%3Ccircle cx='390' cy='280' r='22' fill='%230d0f12'/%3E%3Ccircle cx='325' cy='250' r='16' fill='%230d0f12'/%3E%3Crect x='275' y='195' width='40' height='26' rx='6' fill='%23e5534b' stroke='%230d0f12' stroke-width='8'/%3E%3Crect x='315' y='195' width='40' height='26' rx='6' fill='%2320b8f9' stroke='%230d0f12' stroke-width='8'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

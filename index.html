@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Igelis Reise">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0d0f12">
+    <link rel="manifest" href="manifest.json">
     <title>Igelis Reise – Das Abenteuer und Rätselspiel</title>
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
@@ -56,6 +62,7 @@
             <button type="button" class="m-btn m-local" id="btnLocal">Lokal (1 Gerät)</button>
             <button type="button" class="m-btn m-red" id="btnHost">Raum erstellen (Rot)</button>
             <button type="button" class="m-btn m-blue" id="btnJoinView">Beitreten (Blau)</button>
+            <button type="button" class="m-btn m-back" id="btnFullscreenMenu">Vollbildschirm</button>
         </div>
         <div id="hostPanel" class="hidden">
             <div>Dein Raum-Code:</div>

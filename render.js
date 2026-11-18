@@ -37,6 +37,7 @@ function render() {
         ctx.fillStyle = '#fff'; ctx.font = 'bold 15px system-ui'; ctx.textAlign = 'center'; ctx.fillText(txt, b.x + b.w / 2, b.y + b.h / 2 + 5);
     };
     drawBtn(uiButtons.resetRoom, 'LEVEL RESET');
+    drawBtn(uiButtons.fullscreen, isFullscreenActive() ? 'FENSTER' : 'VOLL');
     drawBtn(uiButtons.sound, soundOn ? 'TON' : 'AUS');
 
     for (const b of getVisibleControlButtons()) {
