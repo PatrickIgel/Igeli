@@ -117,18 +117,21 @@ function populateCoopExtras(idx) {
     const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
 
     // 1. Farb-Plattformen & Wespen in leeren breiten Abgründen (auf angepasste Sprungweite abgestimmt)
-    for (let i = 0; i < platforms.length - 1; i++) {
-        const p1 = platforms[i], p2 = platforms[i + 1];
-        if (p1.y < 120 || p2.y < 120) continue; // Deckenwände ignorieren
+    const groundPlats = platforms.filter(p => p.y > 120 && p.y + p.h >= GAME_H - 5).sort((a, b) => a.x - b.x);
+    for (let i = 0; i < groundPlats.length - 1; i++) {
+        const p1 = groundPlats[i], p2 = groundPlats[i + 1];
         const gapStart = p1.x + p1.w, gapEnd = p2.x;
         const gap = gapEnd - gapStart;
         if (gap >= 145 && gap <= 340) {
             const hasGapElement =
+                platforms.some(p => p.y > 120 && p.x + p.w > gapStart + 10 && p.x < gapEnd - 10) ||
                 colorPlatforms.some(cp => cp.x + cp.w > gapStart && cp.x < gapEnd) ||
                 mossPlatforms.some(mp => mp.x + mp.w > gapStart && mp.x < gapEnd) ||
                 ropeBridges.some(rb => rb.x + rb.w > gapStart && rb.x < gapEnd) ||
                 magnetBlocks.some(mg => mg.x > gapStart - 40 && mg.x < gapEnd + 40) ||
-                winds.some(wi => wi.x + wi.w > gapStart && wi.x < gapEnd);
+                winds.some(wi => wi.x + wi.w > gapStart && wi.x < gapEnd) ||
+                gates.some(g => g.x + g.w > gapStart - 40 && g.x < gapEnd + 40) ||
+                hazards.some(h => h.x + h.w > gapStart && h.x < gapEnd);
             if (hasGapElement) continue;
             const midX = (gapStart + gapEnd) / 2;
             const midY = Math.min(p1.y, p2.y) - 10;

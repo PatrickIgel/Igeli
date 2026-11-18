@@ -66,7 +66,7 @@ LEVEL_MODULES.push(
         addBreak(sx + 555, highY, 110, 30, 'floor');
         spawnGroundEnemy(sx + 610, pitY, rng, true);
         addHaz(sx + 830, pitY - 16, 320);
-        addRope(sx + 985, Math.max(70, highY - 220), sx + 818, Math.max(175, highY - 115), 344, pitY - 34);
+        addRope(sx + 990, Math.max(70, highY - 220), sx + 810, Math.max(175, highY - 115), 360, pitY - 34);
         addBtn(id, sx + 455, pitY - 12, true);
         addGate(id, sx + 1235, endY);
         return { width: 1340, endY };

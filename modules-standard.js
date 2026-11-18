@@ -162,7 +162,7 @@ const LEVEL_MODULES = [
         const endY = clampY(sy + (rng() > 0.5 ? -35 : 20), 350, 500);
         addPlat([sx, sy, 280, GAME_H - sy], [sx + 280, pitY, 360, GAME_H - pitY], [sx + 640, endY, 270, GAME_H - endY], [sx + 640, 0, 46, endY - 64]);
         addHaz(sx + 300, pitY - 16, 320);
-        addRope(sx + 455, Math.max(70, Math.min(sy, endY) - 275), sx + 288, Math.max(185, Math.min(sy, endY) - 160), 344, pitY - 34);
+        addRope(sx + 460, Math.max(70, Math.min(sy, endY) - 275), sx + 280, Math.max(185, Math.min(sy, endY) - 160), 360, pitY - 34);
         spawnGroundEnemy(sx + 795, endY, rng, true);
         return { width: 910, endY };
     },
@@ -220,7 +220,7 @@ const LEVEL_MODULES = [
         addPlat([sx, sy, 240, GAME_H - sy], [sx + 370, midY, 260, 34], [sx + 630, pitY, 350, GAME_H - pitY], [sx + 980, endY, 220, GAME_H - endY], [sx + 980, 0, 46, endY - 64]);
         addWasp(sx + 305, midY - 52, 42, rng() * 3);
         addHaz(sx + 650, pitY - 16, 310);
-        addRope(sx + 800, Math.max(70, Math.min(midY, endY) - 265), sx + 638, Math.max(185, Math.min(midY, endY) - 155), 334, pitY - 34);
+        addRope(sx + 805, Math.max(70, Math.min(midY, endY) - 265), sx + 630, Math.max(185, Math.min(midY, endY) - 155), 350, pitY - 34);
         if (rng() > 0.45) spawnGroundEnemy(sx + 1095, endY, rng, true);
         return { width: 1200, endY };
     },
