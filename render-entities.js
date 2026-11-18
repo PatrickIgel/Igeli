@@ -274,9 +274,73 @@ function renderEntities() {
     }
     for (const br of breakables) {
         if (br.type === 'wall') {
-            ctx.fillStyle = '#8d5b3c'; ctx.fillRect(br.x, br.y, br.w, br.h); ctx.strokeRect(br.x, br.y, br.w, br.h);
-            ctx.beginPath(); for (let y = br.y + 28; y < br.y + br.h; y += 28) { ctx.moveTo(br.x, y); ctx.lineTo(br.x + br.w, y); }
-            ctx.moveTo(br.x + 8, br.y + 15); ctx.lineTo(br.x + br.w - 6, br.y + br.h / 2); ctx.lineTo(br.x + 10, br.y + br.h - 14); ctx.stroke();
+            ctx.save();
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
+            // Mörtel-Hintergrund
+            ctx.fillStyle = '#d6cfc4';
+            ctx.fillRect(br.x, br.y, br.w, br.h);
+
+            // Ziegelsteine im klassischen Läuferverband innerhalb der Wandmaße clippen
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(br.x, br.y, br.w, br.h);
+            ctx.clip();
+
+            const brickH = 15;
+            const brickW = 24;
+            const mortar = 2.5;
+            const brickCols = ['#c84b31', '#b83d25', '#d4583c', '#a9351f'];
+            const rows = Math.ceil(br.h / brickH);
+
+            for (let row = 0; row < rows; row++) {
+                const by = br.y + row * brickH;
+                const offsetX = (row % 2 === 1) ? -brickW * 0.5 : 0;
+                const cols = Math.ceil((br.w + brickW) / brickW) + 1;
+
+                for (let col = 0; col < cols; col++) {
+                    const bx = br.x + offsetX + col * brickW;
+                    const ix = bx + mortar * 0.5;
+                    const iy = by + mortar * 0.5;
+                    const iw = brickW - mortar;
+                    const ih = brickH - mortar;
+
+                    // Hauptfarbe des Ziegels mit leichter organischer Variation
+                    ctx.fillStyle = brickCols[(row * 3 + col * 5) % brickCols.length];
+                    ctx.fillRect(ix, iy, iw, ih);
+
+                    // Feiner Lichtrand oben & Schattenkante unten im Spiel-Stil
+                    ctx.fillStyle = 'rgba(255, 236, 214, 0.26)';
+                    ctx.fillRect(ix + 1, iy + 1, Math.max(0, iw - 2), 2.5);
+                    ctx.fillStyle = 'rgba(42, 14, 8, 0.22)';
+                    ctx.fillRect(ix + 1, iy + ih - 3, Math.max(0, iw - 2), 2.5);
+
+                    // Dezente Stein-Kontur
+                    ctx.strokeStyle = 'rgba(13, 15, 18, 0.55)';
+                    ctx.lineWidth = 1.4;
+                    ctx.strokeRect(ix, iy, iw, ih);
+                }
+            }
+
+            // Riss-Linie als Hinweis auf Zerbrechlichkeit
+            ctx.strokeStyle = '#0d0f12';
+            ctx.lineWidth = 2.6;
+            ctx.beginPath();
+            ctx.moveTo(br.x + 7, br.y + 16);
+            ctx.lineTo(br.x + br.w * 0.52, br.y + br.h * 0.34);
+            ctx.lineTo(br.x + br.w - 7, br.y + br.h * 0.52);
+            ctx.lineTo(br.x + br.w * 0.42, br.y + br.h * 0.72);
+            ctx.lineTo(br.x + 9, br.y + br.h - 14);
+            ctx.stroke();
+
+            ctx.restore();
+
+            // Kräftige Außenkontur passend zu den übrigen Spielelementen
+            ctx.strokeStyle = '#0d0f12';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(br.x, br.y, br.w, br.h);
+            ctx.restore();
         } else {
             ctx.fillStyle = 'rgba(125, 211, 252, 0.85)'; ctx.fillRect(br.x, br.y, br.w, br.h);
             ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(br.x + 8, br.y + 5, br.w - 16, 6); ctx.strokeRect(br.x, br.y, br.w, br.h);
