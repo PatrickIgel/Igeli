@@ -157,15 +157,17 @@ function update(dt) {
         }
     }
 
-    const solids = [...platforms];
-    for (const g of gates) if (g.openH < g.h - 8) solids.push({ x: g.x, y: g.y, w: g.w, h: g.h - g.openH });
-    for (const cp of colorPlatforms) if (isColorPlatformActive(cp)) solids.push({ x: cp.x, y: cp.y, w: cp.w, h: cp.h });
-    for (const cl of colorLasers) if (!isColorActive(cl.color)) solids.push({ x: cl.x, y: cl.y, w: cl.w, h: cl.h });
-    for (const rb of ropeBridges) solids.push({ x: rb.x, y: rb.y, w: rb.w, h: rb.h });
-    for (const mg of magnetBlocks) solids.push({ x: mg.x - mg.r, y: mg.y - mg.r, w: mg.r * 2, h: mg.r * 2 });
-    for (const ms of mossPlatforms) if (!ms.broken && !ms.falling) solids.push({ x: ms.x, y: ms.y, w: ms.w, h: ms.h });
+    const baseSolids = [...platforms];
+    for (const g of gates) if (g.openH < g.h - 8) baseSolids.push({ x: g.x, y: g.y, w: g.w, h: g.h - g.openH });
+    for (const cp of colorPlatforms) if (isColorPlatformActive(cp)) baseSolids.push({ x: cp.x, y: cp.y, w: cp.w, h: cp.h });
+    for (const rb of ropeBridges) baseSolids.push({ x: rb.x, y: rb.y, w: rb.w, h: rb.h });
+    for (const mg of magnetBlocks) baseSolids.push({ x: mg.x - mg.r, y: mg.y - mg.r, w: mg.r * 2, h: mg.r * 2 });
+    for (const ms of mossPlatforms) if (!ms.broken && !ms.falling) baseSolids.push({ x: ms.x, y: ms.y, w: ms.w, h: ms.h });
 
-    for (const s of solids) {
+    const solids = [...baseSolids];
+    for (const cl of colorLasers) if (!isColorActive(cl.color)) solids.push({ x: cl.x, y: cl.y, w: cl.w, h: cl.h });
+
+    for (const s of baseSolids) {
         if (rectOverlap(player.x - player.r, player.y - player.r + 4, player.r * 2, player.r * 2 - 8, s.x, s.y, s.w, s.h)) {
             const isRampSeam = ramps.some(rp =>
                 ((Math.abs((s.x + s.w) - rp.x1) <= 2 && Math.abs(s.y - rp.y1) <= 4) ||
@@ -198,7 +200,7 @@ function update(dt) {
             }
         }
     }
-    for (const s of [...solids, ...boxes]) {
+    for (const s of [...baseSolids, ...boxes]) {
         if (rectOverlap(player.x - player.r + 4, player.y - player.r, player.r * 2 - 8, player.r * 2, s.x, s.y, s.w, s.h)) {
             if (player.vy >= 0 && player.y < s.y + 18) { player.y = s.y - player.r; player.vy = 0; player.grounded = true; }
             else if (player.vy < 0 && player.y > s.y + s.h - 18) { player.y = s.y + s.h + player.r; player.vy = 0; }
@@ -324,6 +326,11 @@ function update(dt) {
     for (const h of hazards) {
         const covered = ropeBridges.some(rb => rb.settled && rectOverlap(h.x + 4, h.y - 18, h.w - 8, 22, rb.x, rb.y, rb.w, rb.h));
         if (!covered && rectOverlap(player.x - player.r + 6, player.y - player.r + 6, player.r * 2 - 12, player.r * 2 - 6, h.x, h.y, h.w, h.h)) hurtPlayer();
+    }
+    for (const cl of colorLasers) {
+        if (!isColorActive(cl.color) && rectOverlap(player.x - player.r + 6, player.y - player.r + 6, player.r * 2 - 12, player.r * 2 - 12, cl.x + 2, cl.y + 12, cl.w - 4, cl.h - 24)) {
+            hurtPlayer();
+        }
     }
     for (const z of zombies) {
         if (z.dead) continue;
