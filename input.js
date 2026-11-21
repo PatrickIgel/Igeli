@@ -58,9 +58,10 @@ function syncPointers() {
 const hitRect = (p, r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
 
 canvas.addEventListener('pointerdown', e => {
+    if (soundOn) ensureAudio();
     const pt = toGameCoords(e.clientX, e.clientY);
     if (hitRect(pt, uiButtons.fullscreen)) { toggleFullscreen(); return; }
-    if (hitRect(pt, uiButtons.sound)) { soundOn = !soundOn; return; }
+    if (hitRect(pt, uiButtons.sound)) { soundOn = !soundOn; if (soundOn) { ensureAudio(); playSound('soundToggle'); } return; }
     if (state.won || state.gameOver || hitRect(pt, uiButtons.resetRoom)) {
         if (netMode === 'client') {
             if (conn && conn.open) {
@@ -68,7 +69,7 @@ canvas.addEventListener('pointerdown', e => {
             }
         } else {
             if (state.won || state.gameOver) {
-                state.won = false; state.gameOver = false; state.levelIndex = 0; state.hearts = 5;
+                state.won = false; state.gameOver = false; state.levelIndex = 0; state.hearts = 5; state.enemiesDefeated = 0; state.elapsedTime = 0; state.maxCatapultJump = 0;
                 loadLevel(0, true);
             } else {
                 loadLevel(state.levelIndex, false);
@@ -110,6 +111,7 @@ function isKeyAllowedForRole(actionId) {
     return true;
 }
 window.addEventListener('keydown', e => {
+    if (soundOn) ensureAudio();
     if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
     const act = keyMap[e.code];
     if (act && isKeyAllowedForRole(act)) { keys[act] = true; sendBlueInputs(true); }

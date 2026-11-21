@@ -172,13 +172,13 @@ function loadLevel(idx, newSeed = false) {
     state.resetSeq = (state.resetSeq || 0) + 1;
     if (newSeed) {
         state.levelSeed = (Math.random() * 1e9) | 0;
-        if (idx === 0) { shuffleBagState.used.clear(); shuffleBagState.cachedKey = ''; shuffleBagState.cachedModules = []; }
+        if (idx === 0) { shuffleBagState.used.clear(); shuffleBagState.cachedKey = ''; shuffleBagState.cachedModules = []; state.enemiesDefeated = 0; state.elapsedTime = 0; state.maxCatapultJump = 0; }
     }
     const rng = createRng(state.levelSeed + idx * 7919);
     const geoRng = createRng(((state.levelSeed ^ 0x9e3779b9) >>> 0) + idx * 104729);
     platforms = []; boxes = []; buttons = []; gates = []; breakables = []; winds = []; hazards = []; zombies = []; mushrooms = []; ramps = []; seesaws = [];
     colorPlatforms = []; ropeBridges = []; wasps = []; beetles = []; magnetBlocks = []; colorLasers = []; mossPlatforms = [];
-    player.vx = 0; player.vy = 0; player.slingshotCharge = 0; player.aimState = 0; player.catapultFlight = false; player.invuln = 0;
+    player.vx = 0; player.vy = 0; player.slingshotCharge = 0; player.aimState = 0; player.catapultFlight = false; player.catapultStartX = null; player.invuln = 0;
 
     let { curX, curY } = START_PRESETS[Math.floor(geoRng() * START_PRESETS.length)](geoRng);
     let lastMod = -1;

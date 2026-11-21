@@ -79,6 +79,9 @@ function sendGameState() {
             hearts: state.hearts,
             won: state.won,
             gameOver: state.gameOver,
+            enemiesDefeated: state.enemiesDefeated,
+            elapsedTime: state.elapsedTime,
+            maxCatapultJump: state.maxCatapultJump,
             redActHeld: state.redActHeld,
             blueActHeld: state.blueActHeld,
             camX: state.camX,
@@ -114,9 +117,36 @@ function applyClientState(d) {
     const wasReset = hasReceivedInitialState && rSeq !== lastResetSeq;
     const levelChanged = !hasReceivedInitialState || wasReset || d.levelIndex !== state.levelIndex || d.levelSeed !== state.levelSeed;
     if (hasReceivedInitialState && !levelChanged) {
-        if (d.hearts < state.hearts) playTone(160, 'sawtooth', 0.3, 0.16, 70);
+        if (d.hearts < state.hearts) playSound('hurt');
+        if (d.won && !state.won) playSound('gameWin');
+        if (d.gameOver && !state.gameOver) playSound('gameOver');
+        if (d.enemiesDefeated !== undefined && d.enemiesDefeated > (state.enemiesDefeated || 0)) {
+            playSound('zombieDefeat');
+        }
+        if (d.redActHeld !== undefined && !!d.redActHeld !== !!state.redActHeld) {
+            playSound(d.redActHeld ? 'colorActivate' : 'colorDeactivate', { color: 'red' });
+        }
+        if (Array.isArray(d.buttons) && d.buttons.length === buttons.length) {
+            for (let i = 0; i < buttons.length; i++) {
+                if (d.buttons[i] && !buttons[i].pressed) playSound('buttonPress', { x: buttons[i].x, y: buttons[i].y });
+            }
+        }
+        if (Array.isArray(d.mushrooms) && d.mushrooms.length === mushrooms.length) {
+            for (let i = 0; i < mushrooms.length; i++) {
+                if (d.mushrooms[i] > 0.85 && mushrooms[i].bounce < 0.5) playSound('mushroomBounce', { x: mushrooms[i].x, y: mushrooms[i].y });
+            }
+        }
+        if (Array.isArray(d.ropeBridges) && d.ropeBridges.length === ropeBridges.length) {
+            for (let i = 0; i < ropeBridges.length; i++) {
+                if (d.ropeBridges[i].cut && !ropeBridges[i].cut) playSound('ropeCut', { x: ropeBridges[i].ropeX, y: ropeBridges[i].ropeY });
+                if (d.ropeBridges[i].settled && !ropeBridges[i].settled) playSound('bridgeLand', { x: ropeBridges[i].x, y: ropeBridges[i].y });
+            }
+        }
+        if (Array.isArray(d.breakables) && d.breakables.length < breakables.length) {
+            playSound('breakWall');
+        }
     } else if (hasReceivedInitialState && d.levelIndex > state.levelIndex) {
-        playTone(440, 'triangle', 0.35, 0.18, 880);
+        playSound('levelWin');
     }
 
     lastResetSeq = rSeq;
@@ -126,6 +156,9 @@ function applyClientState(d) {
     state.hearts = d.hearts;
     state.won = !!d.won;
     state.gameOver = !!d.gameOver;
+    if (d.enemiesDefeated !== undefined) state.enemiesDefeated = d.enemiesDefeated;
+    if (d.elapsedTime !== undefined) state.elapsedTime = d.elapsedTime;
+    if (d.maxCatapultJump !== undefined) state.maxCatapultJump = d.maxCatapultJump;
     if (d.redActHeld !== undefined) state.redActHeld = !!d.redActHeld;
     if (d.blueActHeld !== undefined) state.blueActHeld = !!d.blueActHeld;
 
@@ -364,7 +397,7 @@ async function startHostSession() {
                 remoteInputs.blueAct = !!d.blueAct;
             } else if (d.type === 'reset') {
                 if (state.won || state.gameOver) {
-                    state.won = false; state.gameOver = false; state.levelIndex = 0; state.hearts = 5;
+                    state.won = false; state.gameOver = false; state.levelIndex = 0; state.hearts = 5; state.enemiesDefeated = 0; state.elapsedTime = 0; state.maxCatapultJump = 0;
                     loadLevel(0, true);
                 } else {
                     loadLevel(state.levelIndex, false);

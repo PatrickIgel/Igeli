@@ -66,13 +66,30 @@ function render() {
     }
 
     if (state.won || state.gameOver) {
+        const totalSec = Math.max(0, Math.floor(state.elapsedTime || 0));
+        const hrs = Math.floor(totalSec / 3600);
+        const mins = Math.floor((totalSec % 3600) / 60);
+        const secs = totalSec % 60;
+        const pad2 = n => String(n).padStart(2, '0');
+        const timeStr = hrs > 0 ? `${hrs}:${pad2(mins)}:${pad2(secs)}` : `${pad2(mins)}:${pad2(secs)}`;
+        const bestJumpM = ((state.maxCatapultJump || 0) / 50).toFixed(1).replace('.', ',') + ' m';
+
         ctx.fillStyle = 'rgba(13, 15, 18, 0.78)'; ctx.fillRect(0, 0, GAME_W, GAME_H);
         ctx.fillStyle = state.won ? '#facc15' : '#e5534b'; ctx.strokeStyle = '#0d0f12'; ctx.lineWidth = 6;
-        ctx.fillRect(GAME_W / 2 - 270, GAME_H / 2 - 110, 540, 220); ctx.strokeRect(GAME_W / 2 - 270, GAME_H / 2 - 110, 540, 220);
+        ctx.fillRect(GAME_W / 2 - 280, GAME_H / 2 - 165, 560, 330); ctx.strokeRect(GAME_W / 2 - 280, GAME_H / 2 - 165, 560, 330);
         ctx.fillStyle = state.won ? '#0d0f12' : '#ffffff'; ctx.textAlign = 'center';
-        ctx.font = 'bold 34px system-ui'; ctx.fillText(state.won ? 'GESCHAFFT!' : 'SPIEL VORBEI!', GAME_W / 2, GAME_H / 2 - 35);
-        ctx.font = 'bold 20px system-ui'; ctx.fillText(state.won ? 'Alle 10 Level gemeinsam gemeistert!' : ('Geschaffte Level: ' + state.levelIndex + ' / ' + MAX_LEVELS), GAME_W / 2, GAME_H / 2 + 10);
-        ctx.font = 'bold 16px system-ui'; ctx.fillText('Tippen für neuen Durchlauf', GAME_W / 2, GAME_H / 2 + 58);
+        ctx.font = 'bold 34px system-ui'; ctx.fillText(state.won ? 'GESCHAFFT!' : 'SPIEL VORBEI!', GAME_W / 2, GAME_H / 2 - 102);
+        ctx.font = 'bold 20px system-ui'; ctx.fillText(state.won ? 'Alle 10 Level gemeinsam gemeistert!' : ('Geschaffte Level: ' + state.levelIndex + ' / ' + MAX_LEVELS), GAME_W / 2, GAME_H / 2 - 58);
+
+        ctx.fillStyle = state.won ? 'rgba(13, 15, 18, 0.1)' : 'rgba(13, 15, 18, 0.22)';
+        ctx.fillRect(GAME_W / 2 - 230, GAME_H / 2 - 36, 460, 122);
+        ctx.fillStyle = state.won ? '#0d0f12' : '#ffffff';
+        ctx.font = 'bold 18px system-ui';
+        ctx.fillText('Besiegte Gegner: ' + (state.enemiesDefeated || 0), GAME_W / 2, GAME_H / 2 - 6);
+        ctx.fillText('Benötigte Zeit: ' + timeStr, GAME_W / 2, GAME_H / 2 + 30);
+        ctx.fillText('Weitester Katapultsprung: ' + bestJumpM, GAME_W / 2, GAME_H / 2 + 66);
+
+        ctx.font = 'bold 16px system-ui'; ctx.fillText('Tippen für neuen Durchlauf', GAME_W / 2, GAME_H / 2 + 128);
     }
     ctx.restore();
 }
