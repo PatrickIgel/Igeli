@@ -198,13 +198,14 @@ function playSound(name, opts = {}) {
             playNoise(0.22, 0.10 * v, 'bandpass', 600, 2400, 1.4);
             break;
         case 'hurt':
-            playTone(320, 'triangle', 0.14, 0.065 * v, 240, 0.00);
-            playTone(230, 'triangle', 0.22, 0.060 * v, 135, 0.09);
-            playTone(160, 'sine', 0.24, 0.045 * v, 85, 0.09);
-            playNoise(0.12, 0.025 * v, 'lowpass', 420, 140);
+            playTone(980, 'sine', 0.06, 0.09 * v, 520, 0.00);
+            playTone(659.25, 'triangle', 0.11, 0.14 * v, null, 0.00);
+            playTone(523.25, 'triangle', 0.11, 0.14 * v, null, 0.08);
+            playTone(392.00, 'triangle', 0.22, 0.15 * v, 329.63, 0.16);
+            playTone(783.99, 'sine', 0.18, 0.05 * v, 659.25, 0.16);
             break;
         case 'hazardHit':
-            playTone(360, 'triangle', 0.09, 0.040 * v, 210);
+            playTone(880, 'triangle', 0.07, 0.08 * v, 587.33);
             break;
 
         // --- GEGNER-SOUNDS ---
@@ -368,11 +369,11 @@ function playSound(name, opts = {}) {
             playTone(1046.50, 'triangle', 0.45, 0.18 * v, 1100, 0.56);
             break;
         case 'gameOver':
-            playTone(329.63, 'triangle', 0.16, 0.065 * v, 315, 0.00);
-            playTone(293.66, 'triangle', 0.16, 0.065 * v, 280, 0.15);
-            playTone(261.63, 'triangle', 0.18, 0.065 * v, 248, 0.30);
-            playTone(196.00, 'triangle', 0.38, 0.075 * v, 165, 0.45);
-            playTone(98.00, 'sine', 0.38, 0.045 * v, 82, 0.45);
+            playTone(659.25, 'triangle', 0.14, 0.13 * v, null, 0.00);
+            playTone(587.33, 'triangle', 0.14, 0.13 * v, null, 0.12);
+            playTone(523.25, 'triangle', 0.16, 0.14 * v, null, 0.24);
+            playTone(392.00, 'triangle', 0.36, 0.15 * v, 329.63, 0.36);
+            playTone(783.99, 'sine', 0.30, 0.05 * v, 659.25, 0.36);
             break;
         case 'soundToggle':
             playTone(587.33, 'sine', 0.09, 0.10 * v, 880);
