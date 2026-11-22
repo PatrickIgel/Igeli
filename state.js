@@ -198,13 +198,13 @@ function playSound(name, opts = {}) {
             playNoise(0.22, 0.10 * v, 'bandpass', 600, 2400, 1.4);
             break;
         case 'hurt':
-            playTone(175, 'sawtooth', 0.30, 0.15 * v, 68);
-            playTone(130, 'square', 0.24, 0.09 * v, 52, 0.03);
-            playNoise(0.16, 0.09 * v, 'lowpass', 750, 180);
+            playTone(320, 'triangle', 0.14, 0.065 * v, 240, 0.00);
+            playTone(230, 'triangle', 0.22, 0.060 * v, 135, 0.09);
+            playTone(160, 'sine', 0.24, 0.045 * v, 85, 0.09);
+            playNoise(0.12, 0.025 * v, 'lowpass', 420, 140);
             break;
         case 'hazardHit':
-            playTone(540, 'sawtooth', 0.11, 0.11 * v, 160);
-            playNoise(0.10, 0.09 * v, 'highpass', 1800, 900);
+            playTone(360, 'triangle', 0.09, 0.040 * v, 210);
             break;
 
         // --- GEGNER-SOUNDS ---
@@ -368,10 +368,11 @@ function playSound(name, opts = {}) {
             playTone(1046.50, 'triangle', 0.45, 0.18 * v, 1100, 0.56);
             break;
         case 'gameOver':
-            playTone(329.63, 'sawtooth', 0.18, 0.12 * v, 310, 0.00);
-            playTone(293.66, 'sawtooth', 0.18, 0.12 * v, 275, 0.16);
-            playTone(261.63, 'sawtooth', 0.20, 0.12 * v, 245, 0.32);
-            playTone(196.00, 'sawtooth', 0.42, 0.14 * v, 145, 0.48);
+            playTone(329.63, 'triangle', 0.16, 0.065 * v, 315, 0.00);
+            playTone(293.66, 'triangle', 0.16, 0.065 * v, 280, 0.15);
+            playTone(261.63, 'triangle', 0.18, 0.065 * v, 248, 0.30);
+            playTone(196.00, 'triangle', 0.38, 0.075 * v, 165, 0.45);
+            playTone(98.00, 'sine', 0.38, 0.045 * v, 82, 0.45);
             break;
         case 'soundToggle':
             playTone(587.33, 'sine', 0.09, 0.10 * v, 880);
@@ -389,14 +390,14 @@ function hurtPlayer(cause = 'generic') {
     player.catapultStartX = null;
     state.hearts--;
     player.invuln = 1.4;
-    if (cause === 'hazard') playSound('hazardHit');
-    playSound('hurt');
     if (state.hearts <= 0) {
         state.hearts = 0;
         state.gameOver = true;
         playSound('gameOver');
         return;
     }
+    if (cause === 'hazard') playSound('hazardHit');
+    playSound('hurt');
     loadLevel(state.levelIndex, false);
 }
 
