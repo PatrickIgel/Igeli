@@ -2,7 +2,43 @@ function createRng(seed) {
     let s = (seed >>> 0) || 123456789;
     return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
 }
-const getModuleCount = idx => idx < 2 ? 1 : idx < 5 ? 2 : idx - 2;
+
+const HARD_MODULE_SCHEDULE = [
+    { total: 3, expert: 1 },  // Level 1 (idx 0)
+    { total: 4, expert: 1 },  // Level 2 (idx 1)
+    { total: 4, expert: 1 },  // Level 3 (idx 2)
+    { total: 5, expert: 1 },  // Level 4 (idx 3)
+    { total: 6, expert: 2 },  // Level 5 (idx 4)
+    { total: 8, expert: 2 },  // Level 6 (idx 5)
+    { total: 9, expert: 2 },  // Level 7 (idx 6)
+    { total: 11, expert: 3 }, // Level 8 (idx 7)
+    { total: 12, expert: 3 }, // Level 9 (idx 8)
+    { total: 13, expert: 3 }  // Level 10 (idx 9)
+];
+
+function getLevelModulePlan(idx, difficulty = state.difficulty || 'medium') {
+    if (difficulty === 'easy') {
+        const total = idx < 2 ? 1 : idx < 5 ? 2 : idx - 2;
+        return { total, expertCount: 0, nonExpertPoolEnd: STANDARD_MODULE_COUNT };
+    }
+    if (difficulty === 'hard') {
+        if (idx < HARD_MODULE_SCHEDULE.length) {
+            const entry = HARD_MODULE_SCHEDULE[idx];
+            return { total: entry.total, expertCount: entry.expert, nonExpertPoolEnd: STANDARD_MODULE_COUNT };
+        }
+        return { total: 11 + (idx - 7), expertCount: 3, nonExpertPoolEnd: STANDARD_MODULE_COUNT };
+    }
+    // Mittel (wie bisher)
+    const total = idx < 2 ? 1 : idx < 5 ? 2 : idx - 2;
+    const hasExpert = idx >= 5;
+    return {
+        total,
+        expertCount: hasExpert ? 1 : 0,
+        nonExpertPoolEnd: hasExpert ? LEVEL_MODULES.length : STANDARD_MODULE_COUNT
+    };
+}
+
+const getModuleCount = (idx, difficulty = state.difficulty || 'medium') => getLevelModulePlan(idx, difficulty).total;
 const clampY = (y, min = 340, max = 505) => Math.max(min, Math.min(max, Math.round(y)));
 
 const addPlat = (...list) => list.forEach(([x, y, w, h]) => platforms.push({ x, y, w, h }));
@@ -93,23 +129,71 @@ const GOAL_PRESETS = [
 
 const shuffleBagState = { used: new Set(), cachedKey: '', cachedModules: [] };
 
-function drawFromShuffleBag(rng, poolSize, lastMod, expertOnly = false) {
-    const refillThreshold = Math.ceil(poolSize * 0.9);
-    if (shuffleBagState.used.size >= refillThreshold) shuffleBagState.used.clear();
-    const startIdx = expertOnly ? STANDARD_MODULE_COUNT : 0;
+function drawFromShuffleBag(rng, rangeStart, rangeEnd, lastMod) {
+    const subPoolSize = Math.max(1, rangeEnd - rangeStart);
+    const refillThreshold = Math.max(1, Math.ceil(subPoolSize * 0.9));
+    let usedInRange = 0;
+    for (let i = rangeStart; i < rangeEnd; i++) {
+        if (shuffleBagState.used.has(i)) usedInRange++;
+    }
+    if (usedInRange >= refillThreshold) {
+        for (let i = rangeStart; i < rangeEnd; i++) shuffleBagState.used.delete(i);
+    }
+
     let candidates = [];
-    for (let i = startIdx; i < poolSize; i++) if (!shuffleBagState.used.has(i) && i !== lastMod) candidates.push(i);
-    if (candidates.length === 0 && expertOnly) {
-        for (let i = startIdx; i < poolSize; i++) {
+    for (let i = rangeStart; i < rangeEnd; i++) {
+        if (!shuffleBagState.used.has(i) && i !== lastMod) candidates.push(i);
+    }
+    if (candidates.length === 0) {
+        for (let i = rangeStart; i < rangeEnd; i++) {
             shuffleBagState.used.delete(i);
             if (i !== lastMod) candidates.push(i);
         }
     }
-    if (candidates.length === 0) for (let i = startIdx; i < poolSize; i++) if (!shuffleBagState.used.has(i)) candidates.push(i);
+    if (candidates.length === 0) {
+        for (let i = rangeStart; i < rangeEnd; i++) candidates.push(i);
+    }
+
     const chosen = candidates[Math.floor(rng() * candidates.length)];
     shuffleBagState.used.add(chosen);
-    if (shuffleBagState.used.size >= refillThreshold) shuffleBagState.used.clear();
+
+    let newUsedInRange = 0;
+    for (let i = rangeStart; i < rangeEnd; i++) {
+        if (shuffleBagState.used.has(i)) newUsedInRange++;
+    }
+    if (newUsedInRange >= refillThreshold) {
+        for (let i = rangeStart; i < rangeEnd; i++) shuffleBagState.used.delete(i);
+    }
     return chosen;
+}
+
+function pickExpertSlots(rng, totalCount, expertCount) {
+    const slots = new Set();
+    const target = Math.min(totalCount, Math.max(0, expertCount));
+    if (target <= 0) return slots;
+    if (target === 1) {
+        slots.add(Math.floor(rng() * totalCount));
+        return slots;
+    }
+
+    const allIndices = Array.from({ length: totalCount }, (_, i) => i);
+    for (let i = allIndices.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [allIndices[i], allIndices[j]] = [allIndices[j], allIndices[i]];
+    }
+
+    // Bevorzuge nicht direkt benachbarte Slots, wenn genügend Module vorhanden sind
+    for (const candidate of allIndices) {
+        if (slots.size >= target) break;
+        if (!slots.has(candidate - 1) && !slots.has(candidate + 1)) {
+            slots.add(candidate);
+        }
+    }
+    for (const candidate of allIndices) {
+        if (slots.size >= target) break;
+        slots.add(candidate);
+    }
+    return slots;
 }
 
 function populateCoopExtras(idx) {
@@ -174,6 +258,7 @@ function loadLevel(idx, newSeed = false) {
         state.levelSeed = (Math.random() * 1e9) | 0;
         if (idx === 0) { shuffleBagState.used.clear(); shuffleBagState.cachedKey = ''; shuffleBagState.cachedModules = []; state.enemiesDefeated = 0; state.elapsedTime = 0; state.maxCatapultJump = 0; }
     }
+    const difficulty = state.difficulty || 'medium';
     const rng = createRng(state.levelSeed + idx * 7919);
     const geoRng = createRng(((state.levelSeed ^ 0x9e3779b9) >>> 0) + idx * 104729);
     platforms = []; boxes = []; buttons = []; gates = []; breakables = []; winds = []; hazards = []; zombies = []; mushrooms = []; ramps = []; seesaws = [];
@@ -182,9 +267,9 @@ function loadLevel(idx, newSeed = false) {
 
     let { curX, curY } = START_PRESETS[Math.floor(geoRng() * START_PRESETS.length)](geoRng);
     let lastMod = -1;
-    const poolSize = idx >= 5 ? LEVEL_MODULES.length : STANDARD_MODULE_COUNT;
-    const count = getModuleCount(idx);
-    const cacheKey = `${idx}:${state.levelSeed}`;
+    const plan = getLevelModulePlan(idx, difficulty);
+    const count = plan.total;
+    const cacheKey = `${difficulty}:${idx}:${state.levelSeed}`;
 
     let chosenModules;
     if (!newSeed && shuffleBagState.cachedKey === cacheKey && shuffleBagState.cachedModules.length === count) {
@@ -194,10 +279,13 @@ function loadLevel(idx, newSeed = false) {
         shuffleBagState.cachedKey = cacheKey;
         shuffleBagState.cachedModules = chosenModules.slice();
     } else {
-        const expertSlot = idx >= 5 ? Math.floor(rng() * count) : -1;
+        const expertSlots = pickExpertSlots(rng, count, plan.expertCount);
         chosenModules = [];
         for (let m = 0; m < count; m++) {
-            const modIdx = drawFromShuffleBag(rng, poolSize, lastMod, m === expertSlot);
+            const isExpertSlot = expertSlots.has(m);
+            const rangeStart = isExpertSlot ? STANDARD_MODULE_COUNT : 0;
+            const rangeEnd = isExpertSlot ? LEVEL_MODULES.length : plan.nonExpertPoolEnd;
+            const modIdx = drawFromShuffleBag(rng, rangeStart, rangeEnd, lastMod);
             lastMod = modIdx;
             chosenModules.push(modIdx);
         }

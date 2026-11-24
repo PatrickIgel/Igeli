@@ -10,6 +10,7 @@ let inputSeq = 0, lastInputSeq = -1;
 let jumpPressCount = 0, lastRemoteJumpCount = 0;
 let isConnecting = false;
 let lastSentBlue = { blueJump: false, blueLeft: false, blueAct: false };
+let selectedDifficulty = 'medium';
 
 const METERED_TURN_URL = 'https://igelgame.metered.live/api/v1/turn/credentials?apiKey=d4848105067eefae8ec2d7063773a62f4c30';
 const STUN_FALLBACK_SERVERS = [
@@ -73,6 +74,7 @@ function sendGameState() {
             type: 'state',
             seq: stateSeq,
             resetSeq: state.resetSeq || 0,
+            difficulty: state.difficulty || 'medium',
             levelIndex: state.levelIndex,
             levelSeed: state.levelSeed,
             levelModules: state.levelModules,
@@ -115,7 +117,7 @@ function applyClientState(d) {
 
     const rSeq = d.resetSeq || 0;
     const wasReset = hasReceivedInitialState && rSeq !== lastResetSeq;
-    const levelChanged = !hasReceivedInitialState || wasReset || d.levelIndex !== state.levelIndex || d.levelSeed !== state.levelSeed;
+    const levelChanged = !hasReceivedInitialState || wasReset || d.levelIndex !== state.levelIndex || d.levelSeed !== state.levelSeed || (d.difficulty && d.difficulty !== state.difficulty);
     if (hasReceivedInitialState && !levelChanged) {
         if (d.hearts < state.hearts) playSound('hurt');
         if (d.won && !state.won) playSound('gameWin');
@@ -150,6 +152,7 @@ function applyClientState(d) {
     }
 
     lastResetSeq = rSeq;
+    if (d.difficulty) state.difficulty = d.difficulty;
     state.levelIndex = d.levelIndex;
     state.levelSeed = d.levelSeed;
     if (Array.isArray(d.levelModules)) state.levelModules = d.levelModules;
@@ -290,6 +293,21 @@ const roomCodeDisplay = document.getElementById('roomCodeDisplay');
 const hostStatus = document.getElementById('hostStatus');
 const joinStatus = document.getElementById('joinStatus');
 const codeInput = document.getElementById('codeInput');
+const diffButtons = document.querySelectorAll('.diff-btn');
+
+function setDifficulty(diff) {
+    selectedDifficulty = diff;
+    state.difficulty = diff;
+    diffButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.diff === diff);
+    });
+}
+
+diffButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+        setDifficulty(btn.dataset.diff);
+    });
+});
 
 function cleanupPeer() {
     isConnecting = false;
@@ -312,6 +330,7 @@ document.addEventListener('visibilitychange', () => {
 document.getElementById('btnLocal').addEventListener('click', () => {
     cleanupPeer();
     netMode = 'local';
+    state.difficulty = selectedDifficulty;
     menuOverlay.classList.add('hidden');
     loadLevel(0, true);
 });
@@ -359,6 +378,7 @@ async function startHostSession() {
             if (hostStarted || peer !== currentPeer) return;
             hostStarted = true;
             netMode = 'host';
+            state.difficulty = selectedDifficulty;
             stateSeq = 0;
             lastInputSeq = -1;
             lastRemoteJumpCount = 0;

@@ -381,7 +381,7 @@ function playSound(name, opts = {}) {
     }
 }
 
-const state = { levelIndex: 0, levelSeed: (Math.random() * 1e9) | 0, hearts: 5, camX: 0, won: false, gameOver: false, resetSeq: 0, redActHeld: false, blueActHeld: false, prevRedActHeld: false, prevBlueActHeld: false, minX: 40, maxX: 2120, enemiesDefeated: 0, elapsedTime: 0, maxCatapultJump: 0 };
+const state = { difficulty: 'medium', levelIndex: 0, levelSeed: (Math.random() * 1e9) | 0, hearts: 5, camX: 0, won: false, gameOver: false, resetSeq: 0, redActHeld: false, blueActHeld: false, prevRedActHeld: false, prevBlueActHeld: false, minX: 40, maxX: 2120, enemiesDefeated: 0, elapsedTime: 0, maxCatapultJump: 0 };
 const player = { x: 140, y: 380, vx: 0, vy: 0, r: 24, grounded: false, curled: false, wasCurled: false, rot: 0, facing: 1, aimState: 0, aimAngle: 0.78, aimDir: 1, slingshotCharge: 0, lastChargeStep: 0, rollDistAccum: 0, catapultFlight: false, catapultStartX: null, invuln: 0, wasJumpPressed: false };
 let platforms = [], boxes = [], buttons = [], gates = [], breakables = [], winds = [], hazards = [], zombies = [], mushrooms = [], ramps = [], seesaws = [], goalX = 2000;
 let colorPlatforms = [], ropeBridges = [], wasps = [], beetles = [], magnetBlocks = [], colorLasers = [], mossPlatforms = [];
