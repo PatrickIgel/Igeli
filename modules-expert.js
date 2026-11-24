@@ -160,5 +160,124 @@ LEVEL_MODULES.push(
         addGate(id, sx + 735, midY);
         if (rng() > 0.45) spawnGroundEnemy(sx + 615, midY, rng, true);
         return { width: 1190, endY };
+    },
+    // 26 (Experte ab Level 6 / Farb-Kipp-Katapult): Arretierbare Rampe + Farb-Rückenwind durch Glaswand
+    (sx, sy, id, rng) => {
+        const pitY = 540;
+        const lockCol = rng() > 0.5 ? 'red' : 'blue';
+        const windCol = rng() > 0.5 ? (lockCol === 'red' ? 'blue' : 'red') : lockCol;
+        const highY = clampY(sy - 55, 335, 435);
+        const endY = clampY(highY - 25, 320, 415);
+        addPlat(
+            [sx, sy, 220, GAME_H - sy],
+            [sx + 220, pitY, 410, GAME_H - pitY],
+            [sx + 630, highY, 430, GAME_H - highY],
+            [sx + 1060, endY, 180, GAME_H - endY]
+        );
+        addHaz(sx + 240, pitY - 16, 370);
+        addSeesaw(sx + 425, sy - 16, 160, -0.24, lockCol);
+        addWind([sx + 655, highY - 135, 220, 135, 480, 0, undefined, windCol]);
+        addBreak(sx + 920, highY - 120, 36, 120, 'wall');
+        if (rng() > 0.5) spawnGroundEnemy(sx + 1150, endY, rng, true);
+        return { width: 1240, endY };
+    },
+    // 27 (Experte ab Level 6 / Magnet-Laser-Staffel): Zwei Wechsel-Magnete mit Farb-Laser dazwischen
+    (sx, sy, id, rng) => {
+        const pitY = 545;
+        const swapColors = rng() > 0.5;
+        const c1 = swapColors ? 'blue' : 'red';
+        const c2 = swapColors ? 'red' : 'blue';
+        const endY = clampY(sy + (rng() > 0.5 ? -35 : 20), 345, 485);
+        const m1Y = Math.max(185, sy - 145 - Math.floor(rng() * 20));
+        const m2Y = Math.max(185, endY - 145 - Math.floor(rng() * 20));
+        addPlat(
+            [sx, sy, 200, GAME_H - sy],
+            [sx + 200, pitY, 840, GAME_H - pitY],
+            [sx + 1040, endY, 220, GAME_H - endY]
+        );
+        addHaz(sx + 220, pitY - 16, 800);
+        addMagnet(
+            [sx + 380, m1Y, 26, 255, 1240, c1],
+            [sx + 840, m2Y, 26, 255, 1240, c2]
+        );
+        addColorLaser([sx + 610, Math.min(m1Y, m2Y) + 15, 22, 235, c1]);
+        if (rng() > 0.5) spawnGroundEnemy(sx + 1155, endY, rng, true);
+        return { width: 1260, endY };
+    },
+    // 28 (Experte ab Level 6 / Pilz-Kisten-Schleuse): Kisten-Lift per Pilz, Glasboden-Windschalter & Gegenwind-Tunnel
+    (sx, sy, id, rng) => {
+        const mirrored = rng() > 0.5;
+        const windId = id + 100;
+        const highY = Math.max(265, sy - 175);
+        const endY = clampY(sy + (rng() > 0.5 ? -35 : 0), 350, 500);
+        addPlat(
+            [sx, sy, 1080, GAME_H - sy],
+            [sx + (mirrored ? 150 : 320), highY, 175, 32],
+            [sx + (mirrored ? 435 : 605), highY, 155, 32],
+            [sx + 1080, endY, 160, GAME_H - endY]
+        );
+        if (!mirrored) {
+            mushrooms.push({ x: sx + 215, y: sy - 26, w: 72, h: 26, vy: -760, bounce: 0 });
+            addBox(sx + 345, highY - 48);
+            addBreak(sx + 495, highY, 110, 32, 'floor');
+            addBtn(windId, sx + 550, sy - 12, true, true);
+            addWind([sx + 615, sy - 140, 255, 140, -470, 0, windId]);
+            addBtn(id, sx + 740, sy - 12);
+        } else {
+            mushrooms.push({ x: sx + 475, y: sy - 26, w: 72, h: 26, vy: -760, bounce: 0 });
+            addBox(sx + 340, highY - 48);
+            addBreak(sx + 325, highY, 110, 32, 'floor');
+            addBtn(windId, sx + 380, sy - 12, true, true);
+            addWind([sx + 605, sy - 140, 265, 140, -470, 0, windId]);
+            addBtn(id, sx + 735, sy - 12);
+        }
+        addGate(id, sx + 1015, sy);
+        if (rng() > 0.5) zombies.push({ x: sx + 885, y: sy, dir: -1, dead: false });
+        return { width: 1240, endY };
+    },
+    // 29 (Experte ab Level 6 / Moos-Stampfer-Kettenreaktion): Moos, Glasboden-Stampfer & Farb-Aufwind-Rettung
+    (sx, sy, id, rng) => {
+        const pitY = 545;
+        const windCol = rng() > 0.5 ? 'red' : 'blue';
+        const endY = clampY(sy + (rng() > 0.5 ? -35 : 20), 350, 490);
+        const topY = Math.max(225, Math.min(sy, endY) - 175);
+        const midY = topY + 135;
+        addPlat(
+            [sx, sy, 140, GAME_H - sy],
+            [sx + 140, pitY, 840, GAME_H - pitY],
+            [sx + 430, midY, 130, 28],
+            [sx + 670, midY, 145, 28],
+            [sx + 980, endY, 190, GAME_H - endY]
+        );
+        addHaz(sx + 160, pitY - 16, 800);
+        addWind(
+            [sx + 150, topY - 60, 120, sy - topY + 60, 0, -600],
+            [sx + 820, endY - 75, 145, pitY - endY + 55, 0, -620, undefined, windCol]
+        );
+        addMoss([sx + 295, topY, 120]);
+        addBreak(sx + 560, midY, 110, 28, 'floor');
+        beetles.push({ x: sx + 615, y: pitY - 16, dir: -1, dead: false });
+        if (rng() > 0.5) addWasp(sx + 485, topY - 48, 36, rng() * 6);
+        return { width: 1170, endY };
+    },
+    // 30 (Experte ab Level 6 / Rutsch-Kegeln mit Farb-Weiche): Steile Rampe, Farb-Plattform & Farb-Laser vor Gegner-Gruppe
+    (sx, sy, id, rng) => {
+        const pitY = 545;
+        const switchCol = rng() > 0.5 ? 'red' : 'blue';
+        const dropY = clampY(sy + 85 + Math.floor(rng() * 35), 430, 520);
+        addPlat(
+            [sx, sy, 165, GAME_H - sy],
+            [sx + 385, pitY, 175, GAME_H - pitY],
+            [sx + 560, dropY, 680, GAME_H - dropY]
+        );
+        ramps.push({ x1: sx + 165, y1: sy, x2: sx + 385, y2: dropY });
+        addHaz(sx + 400, pitY - 16, 145);
+        addColorPlat([sx + 410, dropY, 125, switchCol]);
+        addColorLaser([sx + 615, dropY - 155, 22, 155, switchCol]);
+        zombies.push({ x: sx + 740, y: dropY, dir: -1, dead: false }, { x: sx + 845, y: dropY, dir: -1, dead: false });
+        if (rng() > 0.5) beetles.push({ x: sx + 950, y: dropY, dir: -1, dead: false });
+        else zombies.push({ x: sx + 950, y: dropY, dir: -1, dead: false });
+        addBreak(sx + 1045, dropY - 120, 36, 120, 'wall');
+        return { width: 1240, endY: dropY };
     }
 );

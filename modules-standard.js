@@ -277,6 +277,91 @@ const LEVEL_MODULES = [
         addMoss([sx + 245, m1Y, 115], [sx + 422, m2Y, 115], [sx + 600, m3Y, 115]);
         if (rng() > 0.5) spawnGroundEnemy(sx + 865, endY, rng, true);
         return { width: 960, endY };
+    },
+    // 19 (Standard 20 / Pilz-Farb-Sprung): Waldpilz-Katapult zu Farb-Plattformen mit Wespe
+    (sx, sy, id, rng) => {
+        const pitY = 535;
+        const mirrored = rng() > 0.5;
+        const swapColors = rng() > 0.5;
+        const c1 = swapColors ? 'blue' : 'red';
+        const c2 = swapColors ? 'red' : 'blue';
+        const endY = clampY(sy + (rng() > 0.5 ? -40 : 25), 350, 495);
+        const highY = Math.max(255, Math.min(sy, endY) - 140);
+        if (!mirrored) {
+            addPlat([sx, sy, 230, GAME_H - sy], [sx + 230, pitY, 540, GAME_H - pitY], [sx + 770, endY, 210, GAME_H - endY]);
+            addHaz(sx + 250, pitY - 16, 500);
+            mushrooms.push({ x: sx + 125, y: sy - 26, w: 72, h: 26, vy: -760, bounce: 0 });
+            addColorPlat([sx + 340, highY, 130, c1], [sx + 545, highY + 25, 130, c2]);
+            addWasp(sx + 495, highY - 58, 36, rng() * 6);
+        } else {
+            addPlat([sx, sy, 210, GAME_H - sy], [sx + 210, pitY, 540, GAME_H - pitY], [sx + 750, endY, 230, GAME_H - endY]);
+            addHaz(sx + 230, pitY - 16, 500);
+            addColorPlat([sx + 295, highY + 25, 130, c1], [sx + 500, highY, 130, c2]);
+            mushrooms.push({ x: sx + 785, y: endY - 26, w: 72, h: 26, vy: -760, bounce: 0 });
+            addWasp(sx + 465, highY - 58, 36, rng() * 6);
+        }
+        return { width: 980, endY };
+    },
+    // 20 (Standard 21 / Kisten-Rutsche & Laser-Schleuse): Rampe, Kiste, Farb-Laser & Torschalter
+    (sx, sy, id, rng) => {
+        const laserCol = rng() > 0.5 ? 'red' : 'blue';
+        const dropY = clampY(sy + 85 + Math.floor(rng() * 35), 430, 525);
+        addPlat([sx, sy, 230, GAME_H - sy], [sx + 490, dropY, 530, GAME_H - dropY]);
+        ramps.push({ x1: sx + 230, y1: sy, x2: sx + 490, y2: dropY });
+        addBox(sx + 135, sy - 48);
+        addColorLaser([sx + 555, dropY - 155, 22, 155, laserCol]);
+        addBtn(id, sx + 725, dropY - 12);
+        addGate(id, sx + 905, dropY);
+        if (rng() > 0.5) zombies.push({ x: sx + 810, y: dropY, dir: -1, dead: false });
+        return { width: 1020, endY: dropY };
+    },
+    // 21 (Standard 22 / Magnet-Katapult): Magnet-Schwung durch Glaswand auf Boden-Gegner
+    (sx, sy, id, rng) => {
+        const magCol = rng() > 0.5 ? 'red' : 'blue';
+        const endY = clampY(sy + (rng() > 0.5 ? -35 : 25), 350, 495);
+        const magY = Math.max(195, sy - 145 - Math.floor(rng() * 25));
+        addPlat([sx, sy, 680, GAME_H - sy], [sx + 680, endY, 240, GAME_H - endY]);
+        addMagnet([sx + 310, magY, 26, 250, 1180, magCol]);
+        addBreak(sx + 520, sy - 120, 36, 120, 'wall');
+        spawnGroundEnemy(sx + 790, endY, rng, true);
+        return { width: 920, endY };
+    },
+    // 22 (Standard 23 / Moos-Aufwind-Slalom): Moos-Plattformen & mittiger Aufwind über Stachelgrube
+    (sx, sy, id, rng) => {
+        const pitY = 535;
+        const endY = clampY(sy + (rng() > 0.5 ? -40 : 30), 350, 495);
+        const m1Y = clampY(sy - 15, 335, 485);
+        const m2Y = clampY(endY - 15, 335, 485);
+        const topWindY = Math.min(m1Y, m2Y) - 75;
+        addPlat([sx, sy, 180, GAME_H - sy], [sx + 180, pitY, 640, GAME_H - pitY], [sx + 820, endY, 190, GAME_H - endY]);
+        addHaz(sx + 200, pitY - 16, 600);
+        addMoss([sx + 235, m1Y, 125], [sx + 625, m2Y, 125]);
+        addWind([sx + 425, topWindY, 135, pitY - topWindY - 20, 0, -585]);
+        if (rng() > 0.55) addWasp(sx + 492, topWindY - 12, 36, rng() * 6);
+        return { width: 1010, endY };
+    },
+    // 23 (Standard 24 / Seil-Schalter-Pendel): Seil-Schwung auf Mittelplattform mit Schalter & Ausgangstor
+    (sx, sy, id, rng) => {
+        const pitY = 540;
+        const highY = clampY(sy - 45, 325, 430);
+        const endY = clampY(sy + (rng() > 0.5 ? 20 : 45), 390, 505);
+        const zombieOnTop = rng() > 0.5;
+        addPlat(
+            [sx, sy, 230, GAME_H - sy],
+            [sx + 230, pitY, 405, GAME_H - pitY],
+            [sx + 485, highY, 160, 32],
+            [sx + 635, endY, 445, GAME_H - endY]
+        );
+        addHaz(sx + 250, pitY - 16, 365);
+        addRope(sx + 365, Math.max(70, Math.min(sy, highY) - 255), sx + 230, Math.max(185, Math.min(sy, highY) - 145), 270, pitY - 34);
+        addBtn(id, sx + 550, highY - 12, true);
+        addGate(id, sx + 940, endY);
+        if (zombieOnTop) {
+            zombies.push({ x: sx + 610, y: highY, dir: -1, dead: false });
+        } else {
+            zombies.push({ x: sx + 790, y: endY, dir: -1, dead: false });
+        }
+        return { width: 1080, endY };
     }
 ];
 
