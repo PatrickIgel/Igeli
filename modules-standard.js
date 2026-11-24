@@ -362,6 +362,110 @@ const LEVEL_MODULES = [
             zombies.push({ x: sx + 790, y: endY, dir: -1, dead: false });
         }
         return { width: 1080, endY };
+    },
+    // 24 (Standard 25 / Wind-Katapult-Brücke): Aufwind über Stacheln auf Plattform mit Glaswand & Gegner
+    (sx, sy, id, rng) => {
+        const pitY = 535;
+        const highY = clampY(sy - (45 + Math.floor(rng() * 35)), 335, 465);
+        const enemyRoll = rng();
+        addPlat(
+            [sx, sy, 210, GAME_H - sy],
+            [sx + 210, pitY, 210, GAME_H - pitY],
+            [sx + 420, highY, 520, GAME_H - highY]
+        );
+        addHaz(sx + 230, pitY - 16, 170);
+        addWind([sx + 245, highY - 70, 135, pitY - highY + 55, 0, -585]);
+        addBreak(sx + 545, highY - 120, 36, 120, 'wall');
+        if (enemyRoll < 0.34) {
+            zombies.push({ x: sx + 760, y: highY, dir: -1, dead: false });
+        } else if (enemyRoll < 0.68) {
+            beetles.push({ x: sx + 760, y: highY, dir: -1, dead: false });
+        } else {
+            addWasp(sx + 760, highY - 78, 36, rng() * 6);
+        }
+        return { width: 940, endY: highY };
+    },
+    // 25 (Standard 26 / Farb-Laser-Treppenhaus): Drei Stufen-Plattformen mit wechselnden Farb-Lasern & Wespe
+    (sx, sy, id, rng) => {
+        const c1 = rng() > 0.5 ? 'red' : 'blue';
+        const c2 = c1 === 'red' ? 'blue' : 'red';
+        const stepUp = rng() > 0.5;
+        const stepDelta = stepUp ? -42 : 42;
+        const midY = clampY(sy + stepDelta, 320, 480);
+        const endY = clampY(midY + stepDelta, 295, 505);
+        addPlat(
+            [sx, sy, 330, GAME_H - sy],
+            [sx + 330, midY, 330, GAME_H - midY],
+            [sx + 660, endY, 320, GAME_H - endY]
+        );
+        addColorLaser([sx + 308, sy - 155, 22, 155, c1]);
+        addWasp(sx + 495, midY - 82, 38, rng() * 6);
+        addColorLaser([sx + 638, midY - 155, 22, 155, c2]);
+        return { width: 980, endY };
+    },
+    // 26 (Standard 27 / Pilz-Schalter-Pendel): Waldpilz zur Schalter-Plattform & Tor (gespiegelte Position)
+    (sx, sy, id, rng) => {
+        const mirrored = rng() > 0.5;
+        const highY = Math.max(280, sy - 165);
+        const endY = clampY(sy + (rng() > 0.5 ? -35 : 20), 350, 495);
+        addPlat(
+            [sx, sy, 780, GAME_H - sy],
+            [sx + (mirrored ? 190 : 350), highY, 240, 32],
+            [sx + 780, endY, 160, GAME_H - endY]
+        );
+        if (!mirrored) {
+            mushrooms.push({ x: sx + 225, y: sy - 26, w: 72, h: 26, vy: -760, bounce: 0 });
+            addBtn(id, sx + 485, highY - 12, true);
+        } else {
+            mushrooms.push({ x: sx + 475, y: sy - 26, w: 72, h: 26, vy: -760, bounce: 0 });
+            addBtn(id, sx + 255, highY - 12, true);
+        }
+        addGate(id, sx + 705, sy);
+        if (rng() > 0.45) zombies.push({ x: sx + 595, y: sy, dir: -1, dead: false });
+        return { width: 940, endY };
+    },
+    // 27 (Standard 28 / Moos-Seil-Überquerung): Moos-Plattform & Seil über Stachelgrube (Reihenfolge zufällig)
+    (sx, sy, id, rng) => {
+        const pitY = 540;
+        const mirrored = rng() > 0.5;
+        const endY = clampY(sy + (rng() > 0.5 ? -35 : 25), 350, 495);
+        const mossY = clampY((sy + endY) * 0.5 - 10, 335, 485);
+        addPlat(
+            [sx, sy, 210, GAME_H - sy],
+            [sx + 210, pitY, 560, GAME_H - pitY],
+            [sx + 770, endY, 210, GAME_H - endY]
+        );
+        addHaz(sx + 230, pitY - 16, 520);
+        if (!mirrored) {
+            addMoss([sx + 265, mossY, 125]);
+            addRope(sx + 585, Math.max(70, Math.min(mossY, endY) - 260), sx + 435, Math.max(185, Math.min(mossY, endY) - 150), 335, pitY - 34);
+        } else {
+            addRope(sx + 395, Math.max(70, Math.min(sy, mossY) - 260), sx + 210, Math.max(185, Math.min(sy, mossY) - 150), 335, pitY - 34);
+            addMoss([sx + 590, mossY, 125]);
+        }
+        return { width: 980, endY };
+    },
+    // 28 (Standard 29 / Magnet-Lift zum Glasboden): Magnet zur oberen Etage & Glasboden-Stampfer auf Torschalter
+    (sx, sy, id, rng) => {
+        const magCol = rng() > 0.5 ? 'red' : 'blue';
+        const endY = clampY(sy + (rng() > 0.5 ? -35 : 0), 350, 500);
+        const highY = Math.max(255, sy - 165);
+        const magY = Math.max(175, highY - 115);
+        addPlat(
+            [sx, sy, 840, GAME_H - sy],
+            [sx + 370, highY, 155, 32],
+            [sx + 635, highY, 145, 32],
+            [sx + 840, endY, 160, GAME_H - endY]
+        );
+        addMagnet([sx + 245, magY, 26, 250, 1180, magCol]);
+        addBreak(sx + 525, highY, 110, 32, 'floor');
+        addBtn(id, sx + 563, sy - 12, true);
+        addGate(id, sx + 775, sy);
+        if (rng() > 0.45) {
+            if (rng() > 0.5) beetles.push({ x: sx + 440, y: sy, dir: -1, dead: false });
+            else zombies.push({ x: sx + 440, y: sy, dir: -1, dead: false });
+        }
+        return { width: 1000, endY };
     }
 ];
 

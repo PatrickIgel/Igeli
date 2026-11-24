@@ -279,5 +279,116 @@ LEVEL_MODULES.push(
         else zombies.push({ x: sx + 950, y: dropY, dir: -1, dead: false });
         addBreak(sx + 1045, dropY - 120, 36, 120, 'wall');
         return { width: 1240, endY: dropY };
+    },
+    // 31 (Experte ab Level 6 / Farb-Ventilator-Slalom unter Lasern): Wechselnde Farb-Aufwinde & Farb-Laser über Stacheln
+    (sx, sy, id, rng) => {
+        const pitY = 545;
+        const swapColors = rng() > 0.5;
+        const c1 = swapColors ? 'blue' : 'red';
+        const c2 = swapColors ? 'red' : 'blue';
+        const midY = clampY(sy - 45, 325, 425);
+        const endY = clampY(midY - 35, 300, 415);
+        addPlat(
+            [sx, sy, 190, GAME_H - sy],
+            [sx + 190, pitY, 850, GAME_H - pitY],
+            [sx + 1040, endY, 200, GAME_H - endY]
+        );
+        addHaz(sx + 210, pitY - 16, 810);
+        addWind(
+            [sx + 225, midY - 75, 145, pitY - midY + 55, 0, -610, undefined, c1],
+            [sx + 655, endY - 75, 145, pitY - endY + 55, 0, -620, undefined, c2]
+        );
+        addColorLaser(
+            [sx + 505, midY - 115, 22, 230, c1],
+            [sx + 925, endY - 115, 22, 230, c2]
+        );
+        if (rng() > 0.5) addWasp(sx + 1135, endY - 82, 36, rng() * 6);
+        return { width: 1240, endY };
+    },
+    // 32 (Experte ab Level 6 / Kipp-Waage mit Kisten-Gegengewicht): Arretierbare Wippe für Kiste zum Torschalter
+    (sx, sy, id, rng) => {
+        const pitY = 540;
+        const lockCol = rng() > 0.5 ? 'red' : 'blue';
+        const endY = clampY(sy - 20, 345, 465);
+        addPlat(
+            [sx, sy, 250, GAME_H - sy],
+            [sx + 250, pitY, 410, GAME_H - pitY],
+            [sx + 660, endY, 540, GAME_H - endY]
+        );
+        addHaz(sx + 270, pitY - 16, 370);
+        addBox(sx + 130, sy - 48);
+        addSeesaw(sx + 455, sy - 10, 165, -0.22, lockCol);
+        addBtn(id, sx + 845, endY - 12);
+        addGate(id, sx + 1110, endY);
+        if (rng() > 0.5) spawnGroundEnemy(sx + 965, endY, rng, true);
+        return { width: 1200, endY };
+    },
+    // 33 (Experte ab Level 6 / Magnet-Pilz-Katapult): Waldpilz-Start in Magnet-Schwung durch Glaswand mit Wespe
+    (sx, sy, id, rng) => {
+        const pitY = 545;
+        const magCol = rng() > 0.5 ? 'red' : 'blue';
+        const highY = clampY(sy - (65 + Math.floor(rng() * 35)), 310, 420);
+        const endY = clampY(highY + (rng() > 0.5 ? -20 : 25), 300, 445);
+        const magY = Math.max(155, highY - 150);
+        addPlat(
+            [sx, sy, 230, GAME_H - sy],
+            [sx + 230, pitY, 470, GAME_H - pitY],
+            [sx + 700, highY, 370, 32],
+            [sx + 1070, endY, 190, GAME_H - endY]
+        );
+        addHaz(sx + 250, pitY - 16, 430);
+        mushrooms.push({ x: sx + 130, y: sy - 26, w: 72, h: 26, vy: -760, bounce: 0 });
+        addMagnet([sx + 465, magY, 26, 255, 1240, magCol]);
+        addBreak(sx + 855, highY - 120, 36, 120, 'wall');
+        if (rng() > 0.45) addWasp(sx + 595, highY - 75, 38, rng() * 6);
+        return { width: 1260, endY };
+    },
+    // 34 (Experte ab Level 6 / Moos-Tunnel im Gegenwind): Drei Moos-Plattformen im abschaltbaren Gegenwind
+    (sx, sy, id, rng) => {
+        const pitY = 545;
+        const windId = id + 100;
+        const laserCol = rng() > 0.5 ? 'red' : 'blue';
+        const endY = clampY(sy + (rng() > 0.5 ? -30 : 20), 350, 490);
+        const m1Y = clampY(sy - 12, 340, 485);
+        const m2Y = clampY((sy + endY) * 0.5 - 14, 335, 480);
+        const m3Y = clampY(endY - 12, 340, 485);
+        addPlat(
+            [sx, sy, 180, GAME_H - sy],
+            [sx + 180, pitY, 850, GAME_H - pitY],
+            [sx + 1030, endY, 200, GAME_H - endY]
+        );
+        addHaz(sx + 200, pitY - 16, 810);
+        addMoss([sx + 235, m1Y, 120], [sx + 515, m2Y, 145], [sx + 820, m3Y, 120]);
+        addWind([sx + 475, m2Y - 145, 495, 145, -455, 0, windId]);
+        addBtn(windId, sx + 625, m2Y - 12, true, true);
+        if (rng() > 0.5) {
+            addColorLaser([sx + 775, m3Y - 155, 22, 155, laserCol]);
+        } else {
+            addWasp(sx + 585, m2Y - 95, 38, rng() * 6);
+        }
+        return { width: 1230, endY };
+    },
+    // 35 (Experte ab Level 6 / Seil-Stampfer-Kombi): Seil-Schwung zu Glasboden & Farb-Schalterplattform vor Tor
+    (sx, sy, id, rng) => {
+        const pitY = 545;
+        const platCol = rng() > 0.5 ? 'red' : 'blue';
+        const highY = clampY(sy - 65, 315, 415);
+        const switchY = clampY(highY + 115, 430, 505);
+        const endY = clampY(sy + (rng() > 0.5 ? -20 : 25), 360, 495);
+        addPlat(
+            [sx, sy, 210, GAME_H - sy],
+            [sx + 210, pitY, 790, GAME_H - pitY],
+            [sx + 555, highY, 135, 30],
+            [sx + 800, highY, 135, 30],
+            [sx + 1000, endY, 270, GAME_H - endY]
+        );
+        addHaz(sx + 230, pitY - 16, 750);
+        addRope(sx + 385, Math.max(70, Math.min(sy, highY) - 265), sx + 210, Math.max(185, Math.min(sy, highY) - 155), 330, pitY - 34);
+        addBreak(sx + 690, highY, 110, 30, 'floor');
+        addColorPlat([sx + 680, switchY, 130, platCol]);
+        addBtn(id, sx + 730, switchY - 12, true);
+        addGate(id, sx + 1145, endY);
+        if (rng() > 0.5) spawnGroundEnemy(sx + 865, highY, rng, true);
+        return { width: 1270, endY };
     }
 );
