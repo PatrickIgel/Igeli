@@ -6,6 +6,7 @@ let roomCode = '';
 let netTarget = null;
 let hasReceivedInitialState = false;
 let stateSeq = 0, lastStateSeq = -1, lastResetSeq = -1;
+let clientAckResetSeq = -1, appliedLevelDataSeq = -1;
 let inputSeq = 0, lastInputSeq = -1;
 let jumpPressCount = 0, lastRemoteJumpCount = 0;
 let isConnecting = false;
@@ -48,6 +49,74 @@ async function getPeerConfig() {
     };
 }
 
+function buildLevelSnapshot() {
+    return {
+        goalX,
+        minX: state.minX,
+        maxX: state.maxX,
+        platforms: platforms.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h })),
+        hazards: hazards.map(h => ({ x: h.x, y: h.y, w: h.w, h: h.h })),
+        ramps: ramps.map(r => ({ x1: r.x1, y1: r.y1, x2: r.x2, y2: r.y2 })),
+        colorPlatforms: colorPlatforms.map(cp => ({ x: cp.x, y: cp.y, w: cp.w, h: cp.h, color: cp.color })),
+        magnetBlocks: magnetBlocks.map(mg => ({ x: mg.x, y: mg.y, r: mg.r, range: mg.range, force: mg.force, color: mg.color })),
+        colorLasers: colorLasers.map(cl => ({ x: cl.x, y: cl.y, w: cl.w, h: cl.h, color: cl.color })),
+        gates: gates.map(g => ({ id: g.id, x: g.x, y: g.y, w: g.w, h: g.h, openH: g.openH })),
+        buttons: buttons.map(b => ({
+            id: b.id, x: b.x, y: b.y, w: b.w, h: b.h, pressed: b.pressed,
+            ...(b.sticky ? { sticky: true } : {}),
+            ...(b.toggleWind ? { toggleWind: true } : {})
+        })),
+        winds: winds.map(w => ({
+            ...(w.id !== undefined ? { id: w.id } : {}),
+            ...(w.color ? { color: w.color } : {}),
+            x: w.x, y: w.y, w: w.w, h: w.h, vx: w.vx, vy: w.vy, active: w.active
+        })),
+        boxes: boxes.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h, vx: 0, vy: 0 })),
+        seesaws: seesaws.map(s => ({
+            cx: s.cx, cy: s.cy, halfW: s.halfW, angle: s.angle,
+            ...(s.lockColor ? { lockColor: s.lockColor } : {})
+        })),
+        mossPlatforms: mossPlatforms.map(ms => ({
+            x: ms.x, y: ms.y, w: ms.w, h: ms.h, origY: ms.origY,
+            timer: ms.timer, triggered: ms.triggered, falling: ms.falling, broken: ms.broken, vy: 0
+        })),
+        mushrooms: mushrooms.map(m => ({ x: m.x, y: m.y, w: m.w, h: m.h, vy: m.vy, bounce: m.bounce })),
+        ropeBridges: ropeBridges.map(rb => ({
+            ropeX: rb.ropeX, ropeY: rb.ropeY, x: rb.x, y: rb.y, w: rb.w, h: rb.h,
+            targetY: rb.targetY, vy: 0, cut: rb.cut, settled: rb.settled
+        })),
+        wasps: wasps.map(w => ({ x: w.x, y: w.y, baseX: w.baseX, baseY: w.baseY, rangeX: w.rangeX, phase: w.phase, dead: w.dead })),
+        beetles: beetles.map(bt => ({ x: bt.x, y: bt.y, dir: bt.dir, dead: bt.dead })),
+        zombies: zombies.map(z => ({ x: z.x, y: z.y, dir: z.dir, dead: z.dead })),
+        breakables: breakables.map(br => ({ x: br.x, y: br.y, w: br.w, h: br.h, type: br.type }))
+    };
+}
+
+function applyLevelSnapshot(ld) {
+    if (!ld) return;
+    if (ld.goalX !== undefined) goalX = ld.goalX;
+    if (ld.minX !== undefined) state.minX = ld.minX;
+    if (ld.maxX !== undefined) state.maxX = ld.maxX;
+    if (Array.isArray(ld.platforms)) platforms = ld.platforms.map(p => ({ ...p }));
+    if (Array.isArray(ld.hazards)) hazards = ld.hazards.map(h => ({ ...h }));
+    if (Array.isArray(ld.ramps)) ramps = ld.ramps.map(r => ({ ...r }));
+    if (Array.isArray(ld.colorPlatforms)) colorPlatforms = ld.colorPlatforms.map(cp => ({ ...cp }));
+    if (Array.isArray(ld.magnetBlocks)) magnetBlocks = ld.magnetBlocks.map(mg => ({ ...mg }));
+    if (Array.isArray(ld.colorLasers)) colorLasers = ld.colorLasers.map(cl => ({ ...cl }));
+    if (Array.isArray(ld.gates)) gates = ld.gates.map(g => ({ ...g }));
+    if (Array.isArray(ld.buttons)) buttons = ld.buttons.map(b => ({ ...b }));
+    if (Array.isArray(ld.winds)) winds = ld.winds.map(w => ({ ...w }));
+    if (Array.isArray(ld.boxes)) boxes = ld.boxes.map(b => ({ ...b }));
+    if (Array.isArray(ld.seesaws)) seesaws = ld.seesaws.map(s => ({ ...s }));
+    if (Array.isArray(ld.mossPlatforms)) mossPlatforms = ld.mossPlatforms.map(ms => ({ ...ms }));
+    if (Array.isArray(ld.mushrooms)) mushrooms = ld.mushrooms.map(m => ({ ...m }));
+    if (Array.isArray(ld.ropeBridges)) ropeBridges = ld.ropeBridges.map(rb => ({ ...rb }));
+    if (Array.isArray(ld.wasps)) wasps = ld.wasps.map(w => ({ ...w }));
+    if (Array.isArray(ld.beetles)) beetles = ld.beetles.map(bt => ({ ...bt }));
+    if (Array.isArray(ld.zombies)) zombies = ld.zombies.map(z => ({ ...z }));
+    if (Array.isArray(ld.breakables)) breakables = ld.breakables.map(br => ({ ...br }));
+}
+
 function sendBlueInputs(force = false) {
     if (netMode !== 'client' || !conn || !conn.open) return;
     const blueJump = !!(inputs.blueJump || keys.blueJump);
@@ -69,11 +138,13 @@ function sendBlueInputs(force = false) {
 function sendGameState() {
     if (netMode !== 'host' || !conn || !conn.open) return;
     stateSeq++;
+    const curResetSeq = state.resetSeq || 0;
+    const needLevelData = clientAckResetSeq !== curResetSeq;
     try {
-        conn.send({
+        const payload = {
             type: 'state',
             seq: stateSeq,
-            resetSeq: state.resetSeq || 0,
+            resetSeq: curResetSeq,
             difficulty: state.difficulty || 'medium',
             levelIndex: state.levelIndex,
             levelSeed: state.levelSeed,
@@ -105,7 +176,11 @@ function sendGameState() {
             ropeBridges: ropeBridges.map(rb => ({ y: rb.y, cut: rb.cut, settled: rb.settled })),
             wasps: wasps.map(w => ({ x: w.x, y: w.y, dead: w.dead })),
             beetles: beetles.map(bt => ({ x: bt.x, y: bt.y, dir: bt.dir, dead: bt.dead }))
-        });
+        };
+        if (needLevelData) {
+            payload.levelData = buildLevelSnapshot();
+        }
+        conn.send(payload);
     } catch (e) {}
 }
 
@@ -117,7 +192,15 @@ function applyClientState(d) {
 
     const rSeq = d.resetSeq || 0;
     const wasReset = hasReceivedInitialState && rSeq !== lastResetSeq;
-    const levelChanged = !hasReceivedInitialState || wasReset || d.levelIndex !== state.levelIndex || d.levelSeed !== state.levelSeed || (d.difficulty && d.difficulty !== state.difficulty);
+    const modulesChanged = Array.isArray(d.levelModules) && (
+        !Array.isArray(state.levelModules) ||
+        d.levelModules.length !== state.levelModules.length ||
+        d.levelModules.some((m, i) => m !== state.levelModules[i])
+    );
+    const levelChanged = !hasReceivedInitialState || wasReset || modulesChanged ||
+        d.levelIndex !== state.levelIndex || d.levelSeed !== state.levelSeed ||
+        (d.difficulty && d.difficulty !== state.difficulty);
+
     if (hasReceivedInitialState && !levelChanged) {
         if (d.hearts < state.hearts) playSound('hurt');
         if (d.won && !state.won) playSound('gameWin');
@@ -155,7 +238,7 @@ function applyClientState(d) {
     if (d.difficulty) state.difficulty = d.difficulty;
     state.levelIndex = d.levelIndex;
     state.levelSeed = d.levelSeed;
-    if (Array.isArray(d.levelModules)) state.levelModules = d.levelModules;
+    if (Array.isArray(d.levelModules)) state.levelModules = d.levelModules.slice();
     state.hearts = d.hearts;
     state.won = !!d.won;
     state.gameOver = !!d.gameOver;
@@ -166,8 +249,19 @@ function applyClientState(d) {
     if (d.blueActHeld !== undefined) state.blueActHeld = !!d.blueActHeld;
 
     if (levelChanged) {
-        loadLevel(state.levelIndex, false);
+        try {
+            loadLevel(state.levelIndex, false);
+        } catch (e) {}
         netTarget = null;
+        appliedLevelDataSeq = -1;
+    }
+
+    if (d.levelData && appliedLevelDataSeq !== rSeq) {
+        applyLevelSnapshot(d.levelData);
+        appliedLevelDataSeq = rSeq;
+        if (conn && conn.open) {
+            try { conn.send({ type: 'ackLevel', resetSeq: rSeq }); } catch (e) {}
+        }
     }
 
     const px = d.p.x, py = d.p.y, prot = d.p.rot;
@@ -191,7 +285,7 @@ function applyClientState(d) {
     }
     netTarget = { px, py, prot, camX: d.camX };
 
-    if (d.boxes && d.boxes.length === boxes.length) {
+    if (Array.isArray(d.boxes) && d.boxes.length === boxes.length) {
         for (let i = 0; i < boxes.length; i++) {
             const bx = d.boxes[i];
             if (levelChanged || boxes[i].tx === undefined || Math.hypot(bx.x - boxes[i].x, bx.y - boxes[i].y) > 250) {
@@ -202,7 +296,7 @@ function applyClientState(d) {
             boxes[i].ty = bx.y;
         }
     }
-    if (d.gates && d.gates.length === gates.length) {
+    if (Array.isArray(d.gates) && d.gates.length === gates.length) {
         for (let i = 0; i < gates.length; i++) {
             const go = d.gates[i];
             if (levelChanged || gates[i].tOpenH === undefined || Math.abs(go - gates[i].openH) > 250) {
@@ -211,7 +305,7 @@ function applyClientState(d) {
             gates[i].tOpenH = go;
         }
     }
-    if (d.zombies && d.zombies.length === zombies.length) {
+    if (Array.isArray(d.zombies) && d.zombies.length === zombies.length) {
         for (let i = 0; i < zombies.length; i++) {
             const zx = d.zombies[i];
             if (levelChanged || zombies[i].tx === undefined || Math.hypot(zx.x - zombies[i].x, zx.y - zombies[i].y) > 250) {
@@ -224,20 +318,20 @@ function applyClientState(d) {
             zombies[i].dead = zx.dead;
         }
     }
-    if (d.buttons && d.buttons.length === buttons.length) {
+    if (Array.isArray(d.buttons) && d.buttons.length === buttons.length) {
         for (let i = 0; i < buttons.length; i++) buttons[i].pressed = d.buttons[i];
     }
-    if (d.winds && d.winds.length === winds.length) {
+    if (Array.isArray(d.winds) && d.winds.length === winds.length) {
         for (let i = 0; i < winds.length; i++) winds[i].active = d.winds[i];
     }
     if (d.breakables) breakables = d.breakables;
-    if (d.seesaws && d.seesaws.length === seesaws.length) {
+    if (Array.isArray(d.seesaws) && d.seesaws.length === seesaws.length) {
         for (let i = 0; i < seesaws.length; i++) {
             if (levelChanged || seesaws[i].tAngle === undefined) seesaws[i].angle = d.seesaws[i];
             seesaws[i].tAngle = d.seesaws[i];
         }
     }
-    if (d.mossPlatforms && d.mossPlatforms.length === mossPlatforms.length) {
+    if (Array.isArray(d.mossPlatforms) && d.mossPlatforms.length === mossPlatforms.length) {
         for (let i = 0; i < mossPlatforms.length; i++) {
             const m = d.mossPlatforms[i];
             if (levelChanged || mossPlatforms[i].ty === undefined) mossPlatforms[i].y = m.y;
@@ -248,12 +342,12 @@ function applyClientState(d) {
             mossPlatforms[i].timer = m.timer;
         }
     }
-    if (d.mushrooms && d.mushrooms.length === mushrooms.length) {
+    if (Array.isArray(d.mushrooms) && d.mushrooms.length === mushrooms.length) {
         for (let i = 0; i < mushrooms.length; i++) {
             if (d.mushrooms[i] > mushrooms[i].bounce) mushrooms[i].bounce = d.mushrooms[i];
         }
     }
-    if (d.ropeBridges && d.ropeBridges.length === ropeBridges.length) {
+    if (Array.isArray(d.ropeBridges) && d.ropeBridges.length === ropeBridges.length) {
         for (let i = 0; i < ropeBridges.length; i++) {
             const r = d.ropeBridges[i];
             if (levelChanged || ropeBridges[i].ty === undefined) ropeBridges[i].y = r.y;
@@ -262,7 +356,7 @@ function applyClientState(d) {
             ropeBridges[i].settled = r.settled;
         }
     }
-    if (d.wasps && d.wasps.length === wasps.length) {
+    if (Array.isArray(d.wasps) && d.wasps.length === wasps.length) {
         for (let i = 0; i < wasps.length; i++) {
             const w = d.wasps[i];
             if (levelChanged || wasps[i].tx === undefined || Math.hypot(w.x - wasps[i].x, w.y - wasps[i].y) > 250) {
@@ -271,7 +365,7 @@ function applyClientState(d) {
             wasps[i].tx = w.x; wasps[i].ty = w.y; wasps[i].dead = w.dead;
         }
     }
-    if (d.beetles && d.beetles.length === beetles.length) {
+    if (Array.isArray(d.beetles) && d.beetles.length === beetles.length) {
         for (let i = 0; i < beetles.length; i++) {
             const bt = d.beetles[i];
             if (levelChanged || beetles[i].tx === undefined || Math.hypot(bt.x - beetles[i].x, bt.y - beetles[i].y) > 250) {
@@ -380,6 +474,7 @@ async function startHostSession() {
             netMode = 'host';
             state.difficulty = selectedDifficulty;
             stateSeq = 0;
+            clientAckResetSeq = -1;
             lastInputSeq = -1;
             lastRemoteJumpCount = 0;
             remoteInputs.blueJump = false;
@@ -415,6 +510,10 @@ async function startHostSession() {
                 remoteInputs.blueJump = nextJump;
                 remoteInputs.blueLeft = !!d.blueLeft;
                 remoteInputs.blueAct = !!d.blueAct;
+            } else if (d.type === 'ackLevel') {
+                if (d.resetSeq !== undefined) {
+                    clientAckResetSeq = d.resetSeq;
+                }
             } else if (d.type === 'reset') {
                 if (state.won || state.gameOver) {
                     state.won = false; state.gameOver = false; state.levelIndex = 0; state.hearts = 5; state.enemiesDefeated = 0; state.elapsedTime = 0; state.maxCatapultJump = 0;
@@ -517,6 +616,7 @@ async function connectToHost() {
             hasReceivedInitialState = false;
             lastStateSeq = -1;
             lastResetSeq = -1;
+            appliedLevelDataSeq = -1;
             inputSeq = 0;
             jumpPressCount = 0;
             lastSentBlue = { blueJump: false, blueLeft: false, blueAct: false };
