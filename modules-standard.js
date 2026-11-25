@@ -315,16 +315,26 @@ const LEVEL_MODULES = [
         if (rng() > 0.5) zombies.push({ x: sx + 810, y: dropY, dir: -1, dead: false });
         return { width: 1020, endY: dropY };
     },
-    // 21 (Standard 22 / Magnet-Katapult): Magnet-Schwung durch Glaswand auf Boden-Gegner
+    // 21 (Standard 22 / Doppel-Magnet-Mauer): Hohe unzerstörbare Mauer mit zwei Magneten überwinden
     (sx, sy, id, rng) => {
-        const magCol = rng() > 0.5 ? 'red' : 'blue';
+        const swapColors = rng() > 0.5;
+        const c1 = swapColors ? 'blue' : 'red';
+        const c2 = swapColors ? 'red' : 'blue';
         const endY = clampY(sy + (rng() > 0.5 ? -35 : 25), 350, 495);
-        const magY = Math.max(195, sy - 145 - Math.floor(rng() * 25));
-        addPlat([sx, sy, 680, GAME_H - sy], [sx + 680, endY, 240, GAME_H - endY]);
-        addMagnet([sx + 310, magY, 26, 250, 1180, magCol]);
-        addBreak(sx + 520, sy - 120, 36, 120, 'wall');
-        spawnGroundEnemy(sx + 790, endY, rng, true);
-        return { width: 920, endY };
+        const wallTopY = Math.max(195, sy - 235);
+        const m1Y = Math.max(185, sy - 140);
+        const m2Y = Math.max(125, wallTopY - 55);
+        addPlat(
+            [sx, sy, 700, GAME_H - sy],
+            [sx + 500, wallTopY, 44, sy - wallTopY],
+            [sx + 700, endY, 240, GAME_H - endY]
+        );
+        addMagnet(
+            [sx + 255, m1Y, 26, 260, 1220, c1],
+            [sx + 455, m2Y, 26, 260, 1240, c2]
+        );
+        spawnGroundEnemy(sx + 810, endY, rng, true);
+        return { width: 940, endY };
     },
     // 22 (Standard 23 / Moos-Aufwind-Slalom): Moos-Plattformen & mittiger Aufwind über Stachelgrube
     (sx, sy, id, rng) => {

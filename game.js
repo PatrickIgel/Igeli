@@ -369,6 +369,7 @@ function update(dt) {
     for (const b of boxes) {
         let boxFloat = false;
         const prevBoxVy = b.vy || 0;
+        const prevBoxBottom = b.y + b.h;
         for (const w of winds) {
             if (!w.active || !isColorActive(w.color)) continue;
             if (rectOverlap(b.x, b.y, b.w, b.h, w.x, w.y, w.w, w.h)) {
@@ -391,8 +392,21 @@ function update(dt) {
                 playSound('mushroomBounce', { x: m.x + m.w / 2, y: m.y, vol: 0.85 });
             }
         }
+        for (const rp of ramps) {
+            if (b.x + b.w > rp.x1 && b.x < rp.x2) {
+                const tLeft = Math.max(0, Math.min(1, (b.x - rp.x1) / (rp.x2 - rp.x1)));
+                const tRight = Math.max(0, Math.min(1, (b.x + b.w - rp.x1) / (rp.x2 - rp.x1)));
+                const ry = Math.min(rp.y1 + tLeft * (rp.y2 - rp.y1), rp.y1 + tRight * (rp.y2 - rp.y1));
+                if (b.vy >= 0 && b.y + b.h >= ry - 4 && prevBoxBottom <= ry + 24) {
+                    b.y = ry - b.h;
+                    b.vy = 0;
+                    const slopeAngle = Math.atan2(rp.y2 - rp.y1, rp.x2 - rp.x1);
+                    b.x += Math.sin(slopeAngle) * 240 * dt;
+                }
+            }
+        }
         for (const s of solids) {
-            if (rectOverlap(b.x + 2, b.y, b.w - 4, b.h, s.x, s.y, s.w, s.h) && b.vy >= 0 && b.y + b.h - b.vy * dt <= s.y + 12) {
+            if (rectOverlap(b.x + 2, b.y, b.w - 4, b.h, s.x, s.y, s.w, s.h) && b.vy >= 0 && prevBoxBottom <= s.y + 18) {
                 b.y = s.y - b.h;
                 if (prevBoxVy > 150) {
                     playSound('boxLand', { x: b.x + b.w / 2, y: b.y + b.h });

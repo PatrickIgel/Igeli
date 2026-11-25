@@ -343,7 +343,7 @@ LEVEL_MODULES.push(
         if (rng() > 0.45) addWasp(sx + 595, highY - 75, 38, rng() * 6);
         return { width: 1260, endY };
     },
-    // 34 (Experte ab Level 6 / Moos-Tunnel im Gegenwind): Drei Moos-Plattformen im abschaltbaren Gegenwind
+    // 34 (Experte ab Level 6 / Moos-Tunnel im Gegenwind): Moos-Plattformen & feste Mittelplattform mit zentriertem Wind-Ausschalter
     (sx, sy, id, rng) => {
         const pitY = 545;
         const windId = id + 100;
@@ -352,17 +352,20 @@ LEVEL_MODULES.push(
         const m1Y = clampY(sy - 12, 340, 485);
         const m2Y = clampY((sy + endY) * 0.5 - 14, 335, 480);
         const m3Y = clampY(endY - 12, 340, 485);
+        const midPlatX = sx + 495;
+        const midPlatW = 180;
         addPlat(
             [sx, sy, 180, GAME_H - sy],
             [sx + 180, pitY, 850, GAME_H - pitY],
+            [midPlatX, m2Y, midPlatW, 26],
             [sx + 1030, endY, 200, GAME_H - endY]
         );
         addHaz(sx + 200, pitY - 16, 810);
-        addMoss([sx + 235, m1Y, 120], [sx + 515, m2Y, 145], [sx + 820, m3Y, 120]);
-        addWind([sx + 475, m2Y - 145, 495, 145, -455, 0, windId]);
-        addBtn(windId, sx + 625, m2Y - 12, true, true);
+        addMoss([sx + 235, m1Y, 120], [sx + 810, m3Y, 120]);
+        addWind([sx + 625, m2Y - 145, 360, 145, -455, 0, windId]);
+        addBtn(windId, midPlatX + Math.round((midPlatW - 58) / 2), m2Y - 12, true, true);
         if (rng() > 0.5) {
-            addColorLaser([sx + 775, m3Y - 155, 22, 155, laserCol]);
+            addColorLaser([sx + 770, m3Y - 155, 22, 155, laserCol]);
         } else {
             addWasp(sx + 585, m2Y - 95, 38, rng() * 6);
         }
